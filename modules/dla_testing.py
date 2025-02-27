@@ -1,19 +1,27 @@
+from typing import Set, Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
+from DLA_model import Diffusion
 from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 
 
 def successive_over_relaxation(
-    grid, cluster, omega=1.8, epsilon=1e-5, max_iterations=5000
-):
+    grid: np.ndarray,
+    cluster: Set[Tuple[int, int]],
+    omega: float | None = 1.8,
+    epsilon: float | None = 1e-5,
+    max_iterations: int | None = 5000,
+) -> Tuple[list, list, int]:
     """
     Run the Successive Under Relaxation method to solve the time independent diffusion equation
 
-    Params: TODO
+    Params:
     -------
     - grid (np.ndarray): The initial spatial grid
+    - cluster (Set[Tuple[int, int]]): The coordinates of the cluster
     - epsilon (float, optional): The convergence criterion. Defaults to 1e-5.
     - max_iterations (int, optional): The maximum number of iterations. Defaults to 100000.
     - omega (float, optional): The relaxation factor. Defaults to 1.8
@@ -95,21 +103,28 @@ def successive_over_relaxation(
     return results, residuals, k
 
 
-def run_dla_simulation(diffusion, num_iterations):
-    num_iterations = 20
+def run_dla_simulation(
+    diffusion: Diffusion, num_iterations: int | None = 100
+) -> Tuple[list, list]:
+    """
+    Run the DLA simulation with the Successive Over Relaxation method
 
+    Params:
+    -------
+    - diffusion (Diffusion): The diffusion object
+    - num_iterations (int, optional): The number of iterations to run the simulation for. Defaults to 100.
+
+    Returns:
+    --------
+    - results_animation (List[np.ndarray]): A list of the grids at each iteration
+    - clusters (List[Set[Tuple[int, int]]]): A list of the cluster at each iteration
+    """
     results_animation = []
     clusters = []
     clusters.append(diffusion.cluster.copy())
 
     for _ in tqdm(range(num_iterations), desc="Iteration"):
-        results, _, _ = successive_over_relaxation(
-            diffusion.grid,
-            diffusion.cluster,
-            omega=1.8,
-            epsilon=1e-5,
-            max_iterations=1000,
-        )
+        results, _, _ = successive_over_relaxation(diffusion.grid, diffusion.cluster)
         diffusion.grid = results[-1]
 
         # Save grids for animations
@@ -131,20 +146,21 @@ def run_dla_simulation(diffusion, num_iterations):
             break
 
         # Pick one cell randomly
-        new_cell = np.random.choice(
+        new_cell_idx = np.random.choice(
             [i for i in range(len(diffusion.perimeter))],
             size=1,
             p=boundary_concentration / total_boundary_concentration,
         )[0]
-        new_coords = boundary_coords[new_cell]
-
-        # print(f'New cell to be added to the cluster: {new_coords}')
+        new_coords = boundary_coords[new_cell_idx]
 
         # Add the new cell to the cluster
         diffusion.add_to_cluster(new_coords)
 
-        # Set the concentration of the cluster to 0 in the grid:
-        diffusion.grid[new_coords] = 0
+        # Periodic conditions
+        if new_coords[1] == 0:
+            diffusion.add_to_cluster((new_coords[0], diffusion.N - 1))
+        elif new_coords[1] == diffusion.N - 1:
+            diffusion.add_to_cluster((new_coords[0], 0))
 
         clusters.append(diffusion.cluster.copy())
 
