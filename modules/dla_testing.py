@@ -2,10 +2,11 @@ from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from DLA_model import Diffusion
 from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
+
+from modules.DLA_model import Diffusion
 
 
 def successive_over_relaxation(
@@ -104,7 +105,7 @@ def successive_over_relaxation(
 
 
 def run_dla_simulation(
-    diffusion: Diffusion, num_iterations: int | None = 100
+    diffusion: Diffusion, eta: float | None = 1, num_iterations: int | None = 100
 ) -> Tuple[list, list]:
     """
     Run the DLA simulation with the Successive Over Relaxation method
@@ -119,12 +120,16 @@ def run_dla_simulation(
     - results_animation (List[np.ndarray]): A list of the grids at each iteration
     - clusters (List[Set[Tuple[int, int]]]): A list of the cluster at each iteration
     """
+    assert eta >= 0
+
     results_animation = []
     clusters = []
     clusters.append(diffusion.cluster.copy())
 
-    for _ in tqdm(range(num_iterations), desc="Iteration"):
-        results, _, _ = successive_over_relaxation(diffusion.grid, diffusion.cluster)
+    for i in tqdm(range(num_iterations), desc="Iteration"):
+        results, _, _ = successive_over_relaxation(
+            diffusion.grid, diffusion.cluster, epsilon=1e-8
+        )
         diffusion.grid = results[-1]
 
         # Save grids for animations
@@ -136,13 +141,16 @@ def run_dla_simulation(
         ]  # list of boundary coordinates
 
         boundary_concentration = [
-            diffusion.grid[coords] if diffusion.grid[coords] >= 0 else 0
+            diffusion.grid[coords] ** eta if diffusion.grid[coords] >= 0 else 0
             for coords in boundary_coords
         ]
         total_boundary_concentration = sum(boundary_concentration)
 
         # In case there is no more concentration, stop
         if np.abs(total_boundary_concentration) < 1e-10:
+            print(
+                f"The simulation has stopped after {i} steps because there is no more concentration"
+            )
             break
 
         # Pick one cell randomly
