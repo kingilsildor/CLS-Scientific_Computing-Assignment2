@@ -126,6 +126,15 @@ def run_dla_simulation(
     clusters = []
     clusters.append(diffusion.cluster.copy())
 
+    N = diffusion.N
+    diffusion.grid = np.array(
+        [[1 - row / (N - 1) for col in range(N)] for row in range(N)]
+    )  # Initial guess
+
+    # Set the initial cluster again
+    for coords in diffusion.cluster:
+        diffusion.grid[coords] = 0
+
     for i in tqdm(range(num_iterations), desc="Iteration"):
         results, _, _ = successive_over_relaxation(
             diffusion.grid, diffusion.cluster, epsilon=1e-8
