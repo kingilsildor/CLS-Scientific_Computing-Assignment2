@@ -95,28 +95,34 @@ def successive_over_relaxation(
     return results, residuals, k
 
 
-def run_dla_simulation(grid, cluster, boundary, num_iterations):
-    N = grid.shape[0]
+def run_dla_simulation(diffusion, num_iterations):
+    num_iterations = 20
 
     results_animation = []
     clusters = []
-    clusters.append(cluster.copy())
+    clusters.append(diffusion.cluster.copy())
 
     for _ in tqdm(range(num_iterations), desc="Iteration"):
         results, _, _ = successive_over_relaxation(
-            grid, cluster, omega=1.8, epsilon=1e-5, max_iterations=1000
+            diffusion.grid,
+            diffusion.cluster,
+            omega=1.8,
+            epsilon=1e-5,
+            max_iterations=1000,
         )
-        grid = results[-1]
+        diffusion.grid = results[-1]
 
         # Save grids for animations
-        results_animation.append(grid.copy())
+        results_animation.append(diffusion.grid.copy())
 
         # Get the probabilities of boundary cells
         boundary_coords = [
-            coords for coords in boundary
+            coords for coords in diffusion.perimeter
         ]  # list of boundary coordinates
+
         boundary_concentration = [
-            grid[coords] if grid[coords] >= 0 else 0 for coords in boundary_coords
+            diffusion.grid[coords] if diffusion.grid[coords] >= 0 else 0
+            for coords in boundary_coords
         ]
         total_boundary_concentration = sum(boundary_concentration)
 
@@ -126,7 +132,7 @@ def run_dla_simulation(grid, cluster, boundary, num_iterations):
 
         # Pick one cell randomly
         new_cell = np.random.choice(
-            [i for i in range(len(boundary))],
+            [i for i in range(len(diffusion.perimeter))],
             size=1,
             p=boundary_concentration / total_boundary_concentration,
         )[0]
@@ -135,35 +141,19 @@ def run_dla_simulation(grid, cluster, boundary, num_iterations):
         # print(f'New cell to be added to the cluster: {new_coords}')
 
         # Add the new cell to the cluster
-        cluster.add(new_coords)
-        boundary.remove(new_coords)
+        diffusion.add_to_cluster(new_coords)
 
         # Set the concentration of the cluster to 0 in the grid:
-        grid[new_coords] = 0
+        diffusion.grid[new_coords] = 0
 
-        # Update the boundary
-        # Left
-        if new_coords[1] > 0 and (new_coords[0], new_coords[1] - 1) not in cluster:
-            boundary.add((new_coords[0], new_coords[1] - 1))
-        # Right
-        if new_coords[1] < N - 1 and (new_coords[0], new_coords[1] + 1) not in cluster:
-            boundary.add((new_coords[0], new_coords[1] + 1))
-        # Top
-        if new_coords[0] > 0 and (new_coords[0] - 1, new_coords[1]) not in cluster:
-            boundary.add((new_coords[0] - 1, new_coords[1]))
-        # Bottom
-        if new_coords[0] < N - 1 and (new_coords[0] + 1, new_coords[1]) not in cluster:
-            boundary.add((new_coords[0] + 1, new_coords[1]))
-
-        clusters.append(cluster.copy())
+        clusters.append(diffusion.cluster.copy())
 
     return results_animation, clusters
 
 
 def animate_diffusion(
-    results: np.ndarray,
+    results: list,
     clusters: list,
-    steps: int | None = None,
     save_animation: bool = False,
     animation_name: str = "dla.mp4",
 ) -> HTML:
@@ -172,8 +162,8 @@ def animate_diffusion(
 
     Params
     ------
-    - results (np.ndarray): Grid with heat diffusion over time. Default: None
-    - steps (int): Number of time steps. Default: None
+    - results (list): List of grids after each growth step
+    - clusters (list): List of clusters after each growth step
     - save_animation (bool): Save the animation as a video file. Default: False
     - animation_name (str): Name of the animation file. Default: "diffusion.mp4"
 
@@ -182,8 +172,7 @@ def animate_diffusion(
     - HTML: Animation of the diffusion of heat in a grid
     - Video file with the animation of the diffusion of heat in a grid
     """
-    assert isinstance(results, np.ndarray), "Invalid results type, should be np.ndarray"
-    steps = results.shape[0]
+    steps = len(results)
 
     fig, ax = plt.subplots()
     init_grid = results[0]
@@ -192,7 +181,7 @@ def animate_diffusion(
 
     x_points = [coords[1] for coords in clusters[0]]
     y_points = [coords[0] for coords in clusters[0]]
-    scatter = ax.scatter(x_points, y_points, color="black", s=5)
+    scatter = ax.scatter(x_points, y_points, color="black", s=2)
 
     def _animate(frame):
         im.set_array(results[frame])
