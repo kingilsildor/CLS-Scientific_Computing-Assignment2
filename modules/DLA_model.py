@@ -85,12 +85,16 @@ class Diffusion:
         assert y >= 0 and y < self.N
 
         neighbours = set()
-        neighbours.add((x - 1, y))
-        neighbours.add((x + 1, y))
-        neighbours.add((x, y - 1))
-        neighbours.add((x, y + 1))
+        if x > 0:
+            neighbours.add((x - 1, y))
+        if x < self.N - 1:
+            neighbours.add((x + 1, y))
+        if y > 0:
+            neighbours.add((x, y - 1))
+        if y < self.N - 1:
+            neighbours.add((x, y + 1))
 
-        assert len(neighbours) == 4
+        assert 2 <= len(neighbours) <= 4
         assert coords not in neighbours
         assert isinstance(neighbours, set)
         return neighbours
