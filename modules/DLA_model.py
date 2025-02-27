@@ -1,7 +1,10 @@
 import numpy as np
 from typing import Tuple, Dict, Set
+import matplotlib.pyplot as plt
+from grid import initialize_grid
 
-CLUSTER_VALUE = 0
+CLUSTER_VALUE = -1
+CONCENTRATION_VALUE = 1
 
 
 class Diffusion:
@@ -12,28 +15,35 @@ class Diffusion:
         - N: int, size of the grid
         - initial_point: str, where to start the cluster
         """
+        self.grid = initialize_grid(N)
         self.N = N
-        self.grid = np.zeros((N, N))
-        assert self.grid.shape == (N, N)
 
-        if initial_point == "bottom":
+        self.cluster: Set[Tuple[int, int]] = set()
+        self.perimeter: Set[Tuple[int, int]] = set()
+
+        if initial_point == "top":
             coords = (0, N // 2)
-            self.grid[coords] = CLUSTER_VALUE
-        elif initial_point == "top":
+            self.add_to_cluster(coords)
+            self.grid[-1, :] = CONCENTRATION_VALUE
+        elif initial_point == "bottom":
             coords = (N - 1, N // 2)
-            self.grid[coords] = CLUSTER_VALUE
+            self.add_to_cluster(coords)
+            self.grid[0, :] = CONCENTRATION_VALUE
         elif initial_point == "center":
             coords = (N // 2, N // 2)
-            self.grid[coords] = CLUSTER_VALUE
+            self.add_to_cluster(coords)
+            self.grid[0, :] = CONCENTRATION_VALUE
+            self.grid[-1, :] = CONCENTRATION_VALUE
+            self.grid[:, 0] = CONCENTRATION_VALUE
+            self.grid[:, -1] = CONCENTRATION_VALUE
         else:
             raise ValueError(
                 "Invalid initial point, choose from 'bottom', 'top' or 'center'"
             )
 
-        assert np.sum(self.grid) == CLUSTER_VALUE
-
-        self.cluster: Set[Tuple[int, int]] = set()
-        self.perimeter: Set[Tuple[int, int]] = set()
+        assert self.grid[coords] == CLUSTER_VALUE
+        assert self.cluster == {coords}
+        assert self.perimeter == self.get_neighbours(coords)
 
     def add_to_cluster(self, coords: Tuple[int, int]):
         """
@@ -49,6 +59,7 @@ class Diffusion:
         assert y >= 0 and y < self.N
 
         self.cluster.add(coords)
+        self.grid[coords] = CLUSTER_VALUE
         self.perimeter -= self.cluster
 
         # Add neighbours to the perimeter
@@ -86,11 +97,15 @@ class Diffusion:
         assert isinstance(neighbours, set)
         return neighbours
 
+    def plot(self):
+        plt.imshow(self.grid, cmap="viridis")
+        plt.colorbar()
+        plt.show()
+
 
 def main():
-    diffusion = Diffusion(5, initial_point="center")
-    diffusion.add_to_cluster((2, 2))
-    diffusion.add_to_cluster((2, 3))
+    diffusion = Diffusion(100, initial_point="bottom")
+    diffusion.plot()
 
 
 if __name__ == "__main__":
