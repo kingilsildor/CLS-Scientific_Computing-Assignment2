@@ -91,8 +91,12 @@ class Diffusion:
             neighbours.add((x + 1, y))
         if y > 0:
             neighbours.add((x, y - 1))
+        if y == 0:
+            neighbours.add((x, self.N - 2))
         if y < self.N - 1:
             neighbours.add((x, y + 1))
+        if y == self.N - 1:
+            neighbours.add((x, 1))
 
         assert 2 <= len(neighbours) <= 4
         assert coords not in neighbours
