@@ -1,9 +1,10 @@
-import numpy as np
-from typing import Tuple, Dict, Set
-import matplotlib.pyplot as plt
-from grid import initialize_grid
+from typing import Set, Tuple
 
-CLUSTER_VALUE = -1
+import matplotlib.pyplot as plt
+
+from modules.grid import initialize_grid
+
+CLUSTER_VALUE = 0
 CONCENTRATION_VALUE = 1
 
 
