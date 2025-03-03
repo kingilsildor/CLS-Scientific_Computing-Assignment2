@@ -1,180 +1,112 @@
 from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
-import numpy as np
-from tqdm import tqdm
+from grid import initialize_grid
+
+CLUSTER_VALUE = -1
+CONCENTRATION_VALUE = 1
 
 
-class Grid:
-    def __init__(self, N: int, eta: int = 1, initial_point: str = "bottom"):
+class Diffusion:
+    def __init__(self, N: int, initial_point: str = "bottom"):
         """
-        Initialize the grid with a single particle at the center of the grid.
-
-        Params
-        ------
-        - N (int): size of the grid
-        - initial_point (str): initial point of the particle, can be "bottom", "center" or "top". Default is "bottom"
+        Params:
+        -------
+        - N: int, size of the grid
+        - initial_point: str, where to start the cluster
         """
+        self.grid = initialize_grid(N)
+        self.N = N
+
         self.cluster: Set[Tuple[int, int]] = set()
         self.perimeter: Set[Tuple[int, int]] = set()
 
-        self.N = N
-        grid = np.zeros((N, N))
-        assert grid.shape == (N, N), (
-            f"Grid shape is {grid.shape} but should be {(N, N)}"
-        )
-        self.grid = grid
-        self.initial_point = initial_point
-        self.initialize_seed()
-
-        self.eta = eta
-
-    def initialize_seed(self):
-        """
-        Initialize the grid with a single particle at the center of the grid.
-        """
-        N = self.N
-
-        if self.initial_point == "bottom":
-            coords = (N - 1, N // 2)
-            self.add_to_cluster(coords)
-        elif self.initial_point == "center":
-            coords = (N // 2, N // 2)
-            self.add_to_cluster(coords)
-        elif self.initial_point == "top":
+        if initial_point == "top":
             coords = (0, N // 2)
             self.add_to_cluster(coords)
+            self.grid[-1, :] = CONCENTRATION_VALUE
+        elif initial_point == "bottom":
+            coords = (N - 1, N // 2)
+            self.add_to_cluster(coords)
+            self.grid[0, :] = CONCENTRATION_VALUE
+        elif initial_point == "center":
+            coords = (N // 2, N // 2)
+            self.add_to_cluster(coords)
+            self.grid[0, :] = CONCENTRATION_VALUE
+            self.grid[-1, :] = CONCENTRATION_VALUE
+            self.grid[:, 0] = CONCENTRATION_VALUE
+            self.grid[:, -1] = CONCENTRATION_VALUE
         else:
-            ValueError("Invalid initial point. Must be 'bottom', 'center' or 'top'.")
+            raise ValueError(
+                "Invalid initial point, choose from 'bottom', 'top' or 'center'"
+            )
 
-        assert coords in self.cluster, "Initial point not added to the cluster."
+        assert self.grid[coords] == CLUSTER_VALUE
+        assert self.cluster == {coords}
+        assert self.perimeter == self.get_neighbours(coords)
 
-    def add_to_cluster(self, coord: Tuple[int, int]):
+    def add_to_cluster(self, coords: Tuple[int, int]):
         """
-        Add a particle to the cluster.
+        Add a point to the cluster and update the perimeter
 
-        Params
-        ------
-        - coord (Tuple[int, int]): coordinates of the particle to add
-
-        Returns
+        Params:
         -------
-        - None if the particle is already in the cluster or outside the grid
+        - coords: Tuple[int, int], coordinates of the point to add
         """
-        assert isinstance(coord, tuple), "coord must be a tuple."
-        assert len(coord) == 2, "coord must have 2 elements."
-        assert all(isinstance(_, int) for _ in coord), "All elements must be integers."
 
-        x, y = coord
-        N = self.N
+        x, y = coords
+        assert x >= 0 and x < self.N
+        assert y >= 0 and y < self.N
 
-        if coord in self.cluster:
-            return
-        if x < 0 or x >= N or y < 0 or y >= N:
-            return
+        self.cluster.add(coords)
+        self.grid[coords] = CLUSTER_VALUE
+        self.perimeter -= self.cluster
 
-        self.cluster.add(coord)
-        self.update_perimeter(coord)
-
-    def get_neighbours(self, coord: Tuple[int, int]) -> Set[Tuple[int, int]]:
-        """
-        Get the neighbours of a particle.
-
-        Params
-        ------
-        - coord (Tuple[int, int]): coordinates of the particle
-
-        Returns
-        -------
-        - Set[Tuple[int, int]]: set of neighbours of the particle
-        """
-        x, y = coord
-        neighbours = {
-            (x + 1, y),
-            (x - 1, y),
-            (x, y + 1),
-            (x, y - 1),
-        }
+        # Add neighbours to the perimeter
+        neighbours = self.get_neighbours(coords)
         neighbours -= self.cluster
-        assert coord not in neighbours, "Neighbours should not contain the particle."
-        assert neighbours & self.cluster == set(), (
-            "Neighbours should not intersect the cluster."
-        )
-        return neighbours
-
-    def update_perimeter(self, coord: Tuple[int, int]):
-        """
-        Update the perimeter of the cluster.
-
-        Params
-        ------
-        - coord (Tuple[int, int]): coordinates of the particle
-        """
-        neighbours = self.get_neighbours(coord)
         self.perimeter |= neighbours
 
-    def get_probabilities(self, perimeter, c_function=None):
-        if c_function is None:
-            c_values = {candidate: 1 for candidate in perimeter}
-        else:
-            c_values = {candidate: c_function(*candidate) for candidate in perimeter}
+        assert coords not in self.perimeter
+        assert coords in self.cluster
 
-        eta = self.eta
-        denominator = sum(c_values[candidate] ** eta for candidate in perimeter)
-
-        probabilities = [
-            (c_values[candidate] ** eta) / denominator for candidate in perimeter
-        ]
-
-        return probabilities, c_values
-
-    def get_next_particle(self, c_values) -> Tuple[int, int]:
+    def get_neighbours(self, coords: Tuple[int, int]) -> Set[Tuple[int, int]]:
         """
-        Get the next particle to add to the cluster.
+        Get the neighbours of a point
 
-        Returns
+        Params:
         -------
-        - Tuple[int, int]: coordinates of the next particle
-        """
-        perimeter = list(self.perimeter)
-        probabilities, c_values = self.get_probabilities(perimeter, c_values)
+        - coords: Tuple[int, int], coordinates of the point
 
-        next_index = np.random.choice(len(perimeter), p=probabilities)
-        next_particle = perimeter[next_index]
-        return next_particle
+        Returns:
+        --------
+        - neighbours: Set[Tuple[int, int]], set of coordinates of the neighbours
+        """
+        x, y = coords
+        assert x >= 0 and x < self.N
+        assert y >= 0 and y < self.N
 
-    def grow_cluster(self, c_values):
-        """
-        Grow the cluster by adding particles to it.
-        """
-        next_particle = self.get_next_particle(c_values)
-        self.add_to_cluster(next_particle)
+        neighbours = set()
+        neighbours.add((x - 1, y))
+        neighbours.add((x + 1, y))
+        neighbours.add((x, y - 1))
+        neighbours.add((x, y + 1))
 
-    def simulate(self, c_values):
-        """
-        Simulate the growth of the cluster.
-        """
-        for _ in tqdm(range(10_000)):
-            self.grow_cluster(c_values)
+        assert len(neighbours) == 4
+        assert coords not in neighbours
+        assert isinstance(neighbours, set)
+        return neighbours
 
-    def visualize_cluster(self):
-        """
-        Visualize the cluster.
-        """
-        cluster_points = list(self.cluster)
-        if not cluster_points:
-            print("No points in the cluster to visualize.")
-            return
-
-        x, y = zip(*cluster_points)
-        self.grid[x, y] = 1
-        plt.imshow(self.grid)
+    def plot(self):
+        plt.imshow(self.grid, cmap="viridis")
+        plt.colorbar()
         plt.show()
 
 
+def main():
+    diffusion = Diffusion(100, initial_point="bottom")
+    diffusion.plot()
+
+
 if __name__ == "__main__":
-    N = 100
-    grid = Grid(N, initial_point="bottom")
-    c_values = None
-    grid.simulate(c_values)
-    grid.visualize_cluster()
+    main()
