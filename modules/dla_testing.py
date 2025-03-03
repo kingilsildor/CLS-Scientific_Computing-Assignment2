@@ -1,3 +1,4 @@
+import time
 from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
@@ -136,10 +137,17 @@ def run_dla_simulation(
         diffusion.grid[coords] = 0
 
     for i in tqdm(range(num_iterations), desc="Iteration"):
+        print(f"Iteration {i}")
+        start_time_full_loop = time.time()
+
         results, _, _ = successive_over_relaxation(
-            diffusion.grid, diffusion.cluster, epsilon=1e-8
+            diffusion.grid, diffusion.cluster, epsilon=1e-5
         )
         diffusion.grid = results[-1]
+
+        print("--- %s seconds SOR ---" % (time.time() - start_time_full_loop))
+
+        start_time_full_loop = time.time()
 
         # Save grids for animations
         results_animation.append(diffusion.grid.copy())
@@ -149,11 +157,25 @@ def run_dla_simulation(
             coords for coords in diffusion.perimeter
         ]  # list of boundary coordinates
 
+        print(
+            "--- %s seconds append copy + get coords ---"
+            % (time.time() - start_time_full_loop)
+        )
+
+        start_time_full_loop = time.time()
+
         boundary_concentration = [
             diffusion.grid[coords] ** eta if diffusion.grid[coords] >= 0 else 0
             for coords in boundary_coords
         ]
         total_boundary_concentration = sum(boundary_concentration)
+
+        print(
+            "--- %s seconds get probabilities and sum ---"
+            % (time.time() - start_time_full_loop)
+        )
+
+        start_time_full_loop = time.time()
 
         # In case there is no more concentration, stop
         if np.abs(total_boundary_concentration) < 1e-10:
@@ -170,8 +192,16 @@ def run_dla_simulation(
         )[0]
         new_coords = boundary_coords[new_cell_idx]
 
+        print("--- %s seconds pick new cell---" % (time.time() - start_time_full_loop))
+
+        start_time_full_loop = time.time()
+
         # Add the new cell to the cluster
         diffusion.add_to_cluster(new_coords)
+
+        print("--- %s seconds add to cluster---" % (time.time() - start_time_full_loop))
+
+        start_time_full_loop = time.time()
 
         # Periodic conditions
         if new_coords[1] == 0:
@@ -179,7 +209,12 @@ def run_dla_simulation(
         elif new_coords[1] == diffusion.N - 1:
             diffusion.add_to_cluster((new_coords[0], 0))
 
+        print("--- %s seconds add boundary ---" % (time.time() - start_time_full_loop))
+
+        start_time_full_loop = time.time()
+
         clusters.append(diffusion.cluster.copy())
+        print("--- %s seconds full loop ---" % (time.time() - start_time_full_loop))
 
     return results_animation, clusters
 
