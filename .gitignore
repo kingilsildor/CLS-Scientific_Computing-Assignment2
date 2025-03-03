@@ -172,3 +172,7 @@ cython_debug/
 
 # Testing notebook
 modules/*.ipynb
+
+# Binary files
+*.mp4
+*.csv
