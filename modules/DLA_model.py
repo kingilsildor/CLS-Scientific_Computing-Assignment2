@@ -2,8 +2,9 @@ from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE
-from grid import initialize_grid
+
+from modules.config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE
+from modules.grid import initialize_grid
 
 
 class Diffusion:
@@ -12,6 +13,7 @@ class Diffusion:
         Params:
         -------
         - N: int, size of the grid
+        - eta: float, parameter for the probability calculation
         - initial_point: str, where to start the cluster
         """
         self.grid = initialize_grid(N)
@@ -107,9 +109,22 @@ class Diffusion:
         assert isinstance(neighbours, set)
         return neighbours
 
+    def get_perimeter_length(self):
+        return len(self.perimeter)
+
+    def get_width(self):
+        return max([coords[1] for coords in self.cluster]) - min(
+            [coords[1] for coords in self.cluster]
+        )
+
+    def get_height(self):
+        return max([coords[0] for coords in self.cluster]) - min(
+            [coords[0] for coords in self.cluster]
+        )
+
     def plot(self):
         fig, ax = plt.subplots()
-        im = ax.imshow(self.grid, cmap="viridis")
+        im = ax.imshow(self.grid, cmap="Blues")
         plt.colorbar(im)
 
         x_points = [coords[1] for coords in self.cluster]
@@ -118,14 +133,14 @@ class Diffusion:
 
         plt.show()
 
-    def grow_cluster(self):
+    def grow_cluster(self, omega: float = 1.8):
         """
         Grow the cluster by adding a random point from the perimeter
         """
-        results, _, _ = successive_over_relaxation(
-            self.grid, self.cluster, epsilon=1e-5
+        result_sor, sor_iters = successive_over_relaxation(
+            self.grid, self.cluster, omega
         )
-        self.grid = results[-1]
+        self.grid = result_sor
 
         boundary_coords = [coords for coords in self.perimeter]
         boundary_concentration = [
@@ -150,10 +165,15 @@ class Diffusion:
         elif new_coords[1] == self.N - 1:
             self.add_to_cluster((new_coords[0], 0))
 
-    def run_simulation(self, steps: int = 1000):
+        return sor_iters
+
+    def run_simulation(self, steps: int = 1000, omega: float = 1.8):
         """Runs the DLA simulation for a given number of steps."""
-        for _ in range(steps):
-            self.grow_cluster()
+        sor_iters = 0
+        for i in range(steps):
+            sor_iters += self.grow_cluster(omega)
+
+        return sor_iters
 
 
 def successive_over_relaxation(
@@ -177,12 +197,9 @@ def successive_over_relaxation(
     Returns:
     --------
     - results (List[np.ndarray]): A list of spatial grids at each iteration
-    - residuals (List[float]): The residuals at each iteration
     - k (int): The number of iterations
     """
-    residuals = []
-    results = []
-    results.append(grid.copy())
+    grid = grid.copy()
     N = grid.shape[0] - 1
 
     delta = float("inf")
@@ -243,18 +260,46 @@ def successive_over_relaxation(
             if np.abs(grid[i][N] - old_cell) > delta:
                 delta = np.abs(grid[i][N] - old_cell)
 
-        results.append(grid.copy())
-        residuals.append(delta)
-
         k += 1
 
-    return results, residuals, k
+    return grid, k
+
+
+def compare_omega(eta=1):
+    grid_size = 100
+    num_iterations = 30
+
+    omegas = [1.0, 1.4, 1.8, 1.9]
+    results = np.zeros(len(omegas))
+    for i, omega in enumerate(omegas):
+        for _ in range(10):
+            diffusion = Diffusion(grid_size, eta, initial_point="bottom")
+
+            results[i] += diffusion.run_simulation(num_iterations, omega)
+
+    results /= 10
+
+    return results
 
 
 def main():
-    diffusion = Diffusion(100, 1, initial_point="bottom")
-    diffusion.run_simulation(40)
-    diffusion.plot()
+    # grid_size = 100
+    # eta = 1
+    # omega = 1
+    # num_iterations = 20
+    # diffusion = Diffusion(grid_size, eta, initial_point="bottom")
+
+    # start_time = time.time()
+    # diffusion.run_simulation(num_iterations, omega)
+
+    # print(
+    #     f"--- {time.time() - start_time} seconds for {num_iterations} iterations and eta {eta} ---"
+    # )
+
+    # diffusion.plot()
+
+    eta = 1
+    omegas = compare_omega(eta)
 
 
 if __name__ == "__main__":

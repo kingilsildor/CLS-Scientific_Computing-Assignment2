@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
+
+# from numba import njit
 from tqdm import tqdm
 
 from modules.DLA_model import Diffusion
@@ -34,9 +36,9 @@ def successive_over_relaxation(
     - residuals (List[float]): The residuals at each iteration
     - k (int): The number of iterations
     """
-    residuals = []
-    results = []
-    results.append(grid.copy())
+    residuals = np.zeros(max_iterations)
+    results = np.zeros((max_iterations, grid.shape[0], grid.shape[1]))
+    results[0] = grid.copy()
     N = grid.shape[0] - 1
 
     delta = float("inf")
@@ -97,12 +99,37 @@ def successive_over_relaxation(
             if np.abs(grid[i][N] - old_cell) > delta:
                 delta = np.abs(grid[i][N] - old_cell)
 
-        results.append(grid.copy())
-        residuals.append(delta)
+        results[k + 1] = grid.copy()
+        residuals[k] = delta
 
         k += 1
 
-    return results, residuals, k
+    return results[: k + 1], residuals[:k], k
+
+
+def get_boundary_concentration(
+    grid: np.ndarray, boundary_coords: list, eta: float
+) -> np.ndarray:
+    """
+    Get the probabilities of the boundary cells
+
+    Params:
+    -------
+    - grid (np.ndarray): The diffusion grid
+    - boundary_coords (list): List of the boundary coordinates
+    - eta (float): The parameter of the DLA model
+
+    Returns:
+    --------
+    - boundary_concentration (np.ndarray): The probabilities of the boundary cells
+    """
+    boundary_concentration = np.zeros(len(boundary_coords))
+
+    for idx, coords in enumerate(boundary_coords):
+        if grid[coords] >= 0:
+            boundary_concentration[idx] = grid[coords] ** eta
+
+    return boundary_concentration
 
 
 def run_dla_simulation(
@@ -123,9 +150,9 @@ def run_dla_simulation(
     """
     assert eta >= 0
 
-    results_animation = []
-    clusters = []
-    clusters.append(diffusion.cluster.copy())
+    results_animation = np.zeros((num_iterations, diffusion.N, diffusion.N))
+    clusters = np.array([set() for _ in range(num_iterations + 1)])
+    clusters[0] = diffusion.cluster.copy()
 
     N = diffusion.N
     diffusion.grid = np.array(
@@ -150,7 +177,7 @@ def run_dla_simulation(
         start_time_full_loop = time.time()
 
         # Save grids for animations
-        results_animation.append(diffusion.grid.copy())
+        results_animation[i] = diffusion.grid.copy()
 
         # Get the probabilities of boundary cells
         boundary_coords = [
@@ -164,10 +191,14 @@ def run_dla_simulation(
 
         start_time_full_loop = time.time()
 
-        boundary_concentration = [
-            diffusion.grid[coords] ** eta if diffusion.grid[coords] >= 0 else 0
-            for coords in boundary_coords
-        ]
+        # boundary_concentration = [
+        #     diffusion.grid[coords] ** eta if diffusion.grid[coords] >= 0 else 0
+        #     for coords in boundary_coords
+        # ]
+
+        boundary_concentration = get_boundary_concentration(
+            diffusion.grid, boundary_coords, eta
+        )
         total_boundary_concentration = sum(boundary_concentration)
 
         print(
@@ -213,7 +244,7 @@ def run_dla_simulation(
 
         start_time_full_loop = time.time()
 
-        clusters.append(diffusion.cluster.copy())
+        clusters[i + 1] = diffusion.cluster.copy()
         print("--- %s seconds full loop ---" % (time.time() - start_time_full_loop))
 
     return results_animation, clusters
