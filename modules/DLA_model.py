@@ -1,10 +1,8 @@
 from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
+from config import CLUSTER_VALUE, CONCENTRATION_VALUE
 from grid import initialize_grid
-
-CLUSTER_VALUE = -1
-CONCENTRATION_VALUE = 1
 
 
 class Diffusion:
