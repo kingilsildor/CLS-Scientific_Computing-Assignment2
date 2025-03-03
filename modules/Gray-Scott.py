@@ -3,10 +3,8 @@ import matplotlib.pyplot as plt
 from grid import initialize_grid, fill_center
 from matplotlib.animation import FuncAnimation
 
-DIRICHLET_VALUE = 1
 
-
-def laplacian(chemical: np.ndarray, dx: float):
+def laplacian(chemical: np.ndarray):
     """
     Calculate the laplacian of a 2D grid
 
@@ -25,21 +23,14 @@ def laplacian(chemical: np.ndarray, dx: float):
         + chemical[1:-1, :-2]
         + chemical[1:-1, 2:]
         - 4 * chemical[1:-1, 1:-1]
-    ) * dx**2
+    )
 
     assert laplacian.shape == chemical.shape
     return laplacian
 
 
 def gray_scott(
-    U: np.ndarray,
-    V: np.ndarray,
-    Du: float,
-    Dv: float,
-    F: float,
-    k: float,
-    dt: float,
-    dx: float,
+    u: np.ndarray, v: np.ndarray, Du: float, Dv: float, F: float, k: float, dt: float
 ):
     """
     Calculate the Gray-Scott reaction-diffusion model
@@ -59,10 +50,8 @@ def gray_scott(
     - u (np.ndarray): updated concentration of the u chemical
     - v (np.ndarray): updated concentration of the v chemical
     """
-    u, v = U[1:-1, 1:-1], V[1:-1, 1:-1]
-
-    Lu = laplacian(u, dx)
-    Lv = laplacian(v, dx)
+    Lu = laplacian(u)
+    Lv = laplacian(v)
 
     uvv = u * v * v
 
@@ -77,14 +66,7 @@ def gray_scott(
 
 
 def simulate_gray_scott(
-    N: int,
-    Du: float,
-    Dv: float,
-    F: float,
-    k: float,
-    dt: float,
-    dx: float,
-    steps: int,
+    N: int, Du: float, Dv: float, F: float, k: float, dt: float, steps: int
 ):
     """
     Simulate the Gray-Scott reaction-diffusion model
@@ -104,65 +86,32 @@ def simulate_gray_scott(
     - u (np.ndarray): final concentration of the u chemical
     - v (np.ndarray): final concentration of the v chemical
     """
-    U = initialize_grid(N, 1.0)
-    V = fill_center(initialize_grid(N), 0.25)
+    u = initialize_grid(N, 1.0)
+    v = fill_center(initialize_grid(N), 0.25)
 
-    U = initialize_grid(N, 1.0)
-    V = fill_center(initialize_grid(N), 0.25)
+    fig, ax = plt.subplots()
+    im = ax.imshow(v, cmap="viridis", vmin=0, vmax=1)
+    ax.set_title("Gray-Scott Reaction-Diffusion (v)")
+    plt.colorbar(im)
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    im1 = axes[0].imshow(U, cmap='viridis', vmin=0, vmax=1)
-    im2 = axes[1].imshow(V, cmap='magma', vmin=0, vmax=1)
-    axes[0].set_title("U Concentration")
-    axes[1].set_title("V Concentration")
+    # Update function for animation
+    def update(frame, u, v):
+        u, v = gray_scott(u, v, Du, Dv, F, k, dt)
+        im.set_data(v)
+        return [im]
 
-    def update(frame, U, V):
-        U, V = gray_scott(U, V, Du, Dv, F, k, dt, dx)
-        im1.set_data(U)
-        im2.set_data(V)
-        return [im1, im2]
-
-    ani = FuncAnimation(fig, update, frames=steps, interval=30, blit=True, fargs=(U, V))
-    video_path = "results/gray_scott.mp4"
-    ani.save(video_path, writer="ffmpeg", fps=30)
-
-    plt.close(fig)
+    ani = FuncAnimation(fig, update, frames=steps, interval=50, blit=True, fargs=(u, v))
+    plt.show()
 
 
-def boundary_conditions(grid: np.ndarray, condition: str = "periodic"):
-    """
-    Apply boundary conditions to a grid
+def boundary_conditions(u: np.ndarray):
+    u[0, :] = u[1, :]
+    u[-1, :] = u[-2, :]
+    u[:, 0] = u[:, 1]
+    u[:, -1] = u[:, -2]
 
-    Params:
-    -------
-    - grid (np.ndarray): 2D grid
-    - condition (str): boundary condition to apply. Default is "periodic"
+    return u
 
-    Returns:
-    --------
-    - grid (np.ndarray): grid with boundary conditions applied
-    """
-    assert condition in ["dirichlet", "neumann", "periodic"]
-    new_grid = grid.copy()
-
-    if condition == "dirichlet":
-        new_grid[0, :] = DIRICHLET_VALUE
-        new_grid[-1, :] = DIRICHLET_VALUE
-        new_grid[:, 0] = DIRICHLET_VALUE
-        new_grid[:, -1] = DIRICHLET_VALUE
-    elif condition == "neumann":
-        new_grid[0, :] = new_grid[1, :]
-        new_grid[-1, :] = new_grid[-2, :]
-        new_grid[:, 0] = new_grid[:, 1]
-        new_grid[:, -1] = new_grid[:, -2]
-    elif condition == "periodic":
-        new_grid[0, :] = new_grid[-2, :]
-        new_grid[-1, :] = new_grid[1, :]
-        new_grid[:, 0] = new_grid[:, -2]
-        new_grid[:, -1] = new_grid[:, 1]
-
-    assert new_grid.shape == grid.shape
-    return new_grid
 
 def main():
     N = 100
@@ -171,10 +120,9 @@ def main():
     F = 0.035
     k = 0.06
     dt = 1
-    dx = 1
-    steps = 30_000
+    steps = 1000
 
-    u, v = simulate_gray_scott(N, Du, Dv, F, k, dt, dx, steps)
+    u, v = simulate_gray_scott(N, Du, Dv, F, k, dt, steps)
 
 
 if __name__ == "__main__":
