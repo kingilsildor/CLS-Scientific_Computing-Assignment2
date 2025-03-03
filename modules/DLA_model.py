@@ -132,10 +132,10 @@ class Diffusion:
         y_points = [coords[0] for coords in self.cluster]
         ax.scatter(x_points, y_points, color="black", s=2)
 
-        plt.show()
-
         if save:
             plt.savefig(filename, dpi=300, bbox_inches="tight")
+
+        plt.show()
 
     def grow_cluster(self, omega: float = 1.8):
         """
@@ -307,7 +307,8 @@ def plot_omega_comparison(
         rf"# iterations needed in SOR vs $\omega$ for 100x100 grid, 50 grow steps, $\eta = {eta}$"
     )
     plt.grid(True)
-    plt.show()
 
     if save:
         plt.savefig(filename, dpi=300, bbox_inches="tight")
+
+    plt.show()
