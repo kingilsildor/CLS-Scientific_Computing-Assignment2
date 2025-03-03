@@ -171,4 +171,4 @@ cython_debug/
 .pypirc
 
 # Testing notebook
-testing_notebook.ipynb
+modules/*.ipynb
