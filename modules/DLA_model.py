@@ -2,6 +2,7 @@ from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+from joblib import Parallel, delayed
 
 from modules.config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE
 from modules.grid import initialize_grid
@@ -109,7 +110,7 @@ class Diffusion:
         assert isinstance(neighbours, set)
         return neighbours
 
-    def get_perimeter_length(self):
+    def get_perimeter_size(self):
         return len(self.perimeter)
 
     def get_width(self):
@@ -122,7 +123,7 @@ class Diffusion:
             [coords[0] for coords in self.cluster]
         )
 
-    def plot(self):
+    def plot(self, save: bool = False, filename: str = "dla.png"):
         fig, ax = plt.subplots()
         im = ax.imshow(self.grid, cmap="Blues")
         plt.colorbar(im)
@@ -132,6 +133,9 @@ class Diffusion:
         ax.scatter(x_points, y_points, color="black", s=2)
 
         plt.show()
+
+        if save:
+            plt.savefig(filename, dpi=300, bbox_inches="tight")
 
     def grow_cluster(self, omega: float = 1.8):
         """
@@ -265,42 +269,45 @@ def successive_over_relaxation(
     return grid, k
 
 
-def compare_omega(eta=1):
+def simulate_different_omegas(
+    eta: float = 1, omegas: list[float] = [1.0, 1.4, 1.8, 1.9]
+):
     grid_size = 100
-    num_iterations = 30
+    num_iterations = 50
 
-    omegas = [1.0, 1.4, 1.8, 1.9]
     results = np.zeros(len(omegas))
-    for i, omega in enumerate(omegas):
-        for _ in range(10):
-            diffusion = Diffusion(grid_size, eta, initial_point="bottom")
+    for j, omega in enumerate(omegas):
+        diffusion = Diffusion(grid_size, eta, initial_point="bottom")
 
-            results[i] += diffusion.run_simulation(num_iterations, omega)
-
-    results /= 10
+        results[j] = diffusion.run_simulation(num_iterations, omega)
 
     return results
 
 
-def main():
-    # grid_size = 100
-    # eta = 1
-    # omega = 1
-    # num_iterations = 20
-    # diffusion = Diffusion(grid_size, eta, initial_point="bottom")
+def compare_omegas(
+    eta: float = 1,
+    omegas: list[float] = [1.0, 1.4, 1.8, 1.9],
+    num_simulations: int = 20,
+):
+    results = Parallel(n_jobs=-2)(
+        delayed(simulate_different_omegas)(eta, omegas) for _ in range(num_simulations)
+    )
 
-    # start_time = time.time()
-    # diffusion.run_simulation(num_iterations, omega)
-
-    # print(
-    #     f"--- {time.time() - start_time} seconds for {num_iterations} iterations and eta {eta} ---"
-    # )
-
-    # diffusion.plot()
-
-    eta = 1
-    omegas = compare_omega(eta)
+    return np.array(results)
 
 
-if __name__ == "__main__":
-    main()
+def plot_omega_comparison(
+    results, omegas, eta, save=False, filename="omega_comparison.png"
+):
+    plt.figure(figsize=(8, 5))
+    plt.boxplot(results, tick_labels=omegas)
+    plt.xlabel(r"$\omega$")
+    plt.ylabel("# SOR Iterations")
+    plt.title(
+        rf"# iterations needed in SOR vs $\omega$ for 100x100 grid, 50 grow steps, $\eta = {eta}$"
+    )
+    plt.grid(True)
+    plt.show()
+
+    if save:
+        plt.savefig(filename, dpi=300, bbox_inches="tight")
