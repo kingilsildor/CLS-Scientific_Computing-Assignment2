@@ -8,7 +8,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from modules.config import DIRICHLET_VALUE
-from modules.grid import fill_center, initialize_grid
+from modules.grid import fill_center, initialize_grid, fill_noise
 
 
 @njit
@@ -68,10 +68,7 @@ def laplacian(chemical: np.ndarray) -> np.ndarray:
         - 4 * chemical[1:-1, 1:-1]
     )
 
-    laplacian[0, :] = chemical[0, :]
-    laplacian[-1, :] = chemical[-1, :]
-    laplacian[:, 0] = chemical[:, 0]
-    laplacian[:, -1] = chemical[:, -1]
+    laplacian = boundary_conditions(laplacian, "neumann")
 
     assert laplacian.shape == chemical.shape
     return laplacian
@@ -117,9 +114,6 @@ def gray_scott(
     u += (Du * Lu * 1 / dx**2 - uvv + F * (1 - u)) * dt
     v += (Dv * Lv * 1 / dx**2 + uvv - (F + k) * v) * dt
 
-    u = boundary_conditions(u, boundary)
-    v = boundary_conditions(v, boundary)
-
     assert u.shape == v.shape
     return u, v
 
@@ -133,8 +127,10 @@ def simulate_gray_scott(
     dx: float,
     dt: float,
     steps: int,
-    chemical: str = "v",
+    noise_u: bool = False,
+    noise_v: bool = False,
     boundary: str = "neumann",
+    chemical: str = "v",
     info: bool = False,
 ):
     """
@@ -150,8 +146,10 @@ def simulate_gray_scott(
     - dx (float): spatial step
     - dt (float): time step
     - steps (int): number of steps to simulate
-    - chemical (str): chemical to visualize (u or v)
+    - noise_u (bool): whether to add noise to the u chemical
+    - noise_v (bool): whether to add noise to the v chemical
     - boundary (str): type of boundary condition to apply (neumann, periodic, dirichlet)
+    - chemical (str): chemical to visualize (u or v)
     - info (bool): whether to display simulation info
 
     Returns:
@@ -160,7 +158,15 @@ def simulate_gray_scott(
     - v (np.ndarray): final concentration of the v chemical
     """
     u = initialize_grid(N, 1.0)
-    v = fill_center(initialize_grid(N), 0.25)
+    v = fill_center(initialize_grid(N))
+    if noise_u:
+        u = fill_noise(u)
+    if noise_v:
+        v = fill_noise(v)
+    assert isinstance(u, np.ndarray) & isinstance(v, np.ndarray)
+    assert u.shape == v.shape
+
+    colour = "viridis"
 
     for step in tqdm(range(steps), desc="Gray-Scott simulation"):
         u, v = gray_scott(u, v, Du, Dv, F, k, dx, dt, boundary)
@@ -168,9 +174,9 @@ def simulate_gray_scott(
         if step % 100 == 0:
             filename = "results/gs_{:02d}.png".format(step // 100)
             if chemical == "u":
-                plt.imshow(u, cmap="inferno")
+                plt.imshow(u, cmap=colour)
             elif chemical == "v":
-                plt.imshow(v, cmap="inferno")
+                plt.imshow(v, cmap=colour)
             else:
                 raise ValueError(f"Invalid chemical: {chemical}")
 
@@ -183,6 +189,7 @@ def simulate_gray_scott(
             plt.axis("off")
             plt.tight_layout()
             plt.savefig(filename)
+    plt.close()
 
 
 def create_gif(
