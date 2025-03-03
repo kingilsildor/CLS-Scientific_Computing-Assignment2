@@ -1,4 +1,5 @@
 import numpy as np
+from modules.config import NOISE_VALUE
 
 
 def initialize_grid(N: int, value: int | float = 0.0) -> np.ndarray:
@@ -45,4 +46,21 @@ def fill_center(grid: np.ndarray, value: float = 1.0) -> np.ndarray:
 
     assert grid.shape == (N, N)
     assert np.all(grid[mask] == value)
+    return grid
+
+
+def fill_noise(grid: np.ndarray) -> np.ndarray:
+    """
+    Add some noise to the grid
+
+    Params:
+    -------
+    - grid (np.ndarray): grid to add noise to
+
+    Returns:
+    --------
+    - grid (np.ndarray): grid with noise added
+    """
+    noise = np.random.normal(0, NOISE_VALUE, grid.shape)
+    grid += noise
     return grid
