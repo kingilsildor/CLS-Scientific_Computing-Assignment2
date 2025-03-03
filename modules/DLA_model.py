@@ -123,7 +123,7 @@ class Diffusion:
             [coords[0] for coords in self.cluster]
         )
 
-    def plot(self, save: bool = False, filename: str = "dla.png"):
+    def plot(self, eta: float = 1, save: bool = False, filename: str = "dla.png"):
         fig, ax = plt.subplots()
         im = ax.imshow(self.grid, cmap="Blues")
         plt.colorbar(im)
@@ -131,6 +131,9 @@ class Diffusion:
         x_points = [coords[1] for coords in self.cluster]
         y_points = [coords[0] for coords in self.cluster]
         ax.scatter(x_points, y_points, color="black", s=2)
+        ax.set_title(
+            rf"DLA cluster for $\eta = {eta}$ and {len(self.cluster) - 1} growth steps"
+        )
 
         if save:
             plt.savefig(filename, dpi=300, bbox_inches="tight")
