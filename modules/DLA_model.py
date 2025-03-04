@@ -276,13 +276,13 @@ def simulate_different_omegas(
     eta: float = 1, omegas: list[float] = [1.0, 1.4, 1.8, 1.9]
 ):
     grid_size = 100
-    num_iterations = 50
+    growth_steps = 50
 
     results = np.zeros(len(omegas))
     for j, omega in enumerate(omegas):
         diffusion = Diffusion(grid_size, eta, initial_point="bottom")
 
-        results[j] = diffusion.run_simulation(num_iterations, omega)
+        results[j] = diffusion.run_simulation(growth_steps, omega)
 
     return results
 
