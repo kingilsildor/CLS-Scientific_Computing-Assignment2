@@ -2,8 +2,10 @@ from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE
-from grid import initialize_grid
+from joblib import Parallel, delayed
+
+from modules.config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE
+from modules.grid import initialize_grid
 
 
 class Diffusion:
@@ -12,6 +14,7 @@ class Diffusion:
         Params:
         -------
         - N: int, size of the grid
+        - eta: float, parameter for the probability calculation
         - initial_point: str, where to start the cluster
         """
         self.grid = initialize_grid(N)
@@ -107,25 +110,44 @@ class Diffusion:
         assert isinstance(neighbours, set)
         return neighbours
 
-    def plot(self):
+    def get_perimeter_size(self):
+        return len(self.perimeter)
+
+    def get_width(self):
+        return max([coords[1] for coords in self.cluster]) - min(
+            [coords[1] for coords in self.cluster]
+        )
+
+    def get_height(self):
+        return max([coords[0] for coords in self.cluster]) - min(
+            [coords[0] for coords in self.cluster]
+        )
+
+    def plot(self, eta: float = 1, save: bool = False, filename: str = "dla.png"):
         fig, ax = plt.subplots()
-        im = ax.imshow(self.grid, cmap="viridis")
+        im = ax.imshow(self.grid, cmap="Blues")
         plt.colorbar(im)
 
         x_points = [coords[1] for coords in self.cluster]
         y_points = [coords[0] for coords in self.cluster]
         ax.scatter(x_points, y_points, color="black", s=2)
+        ax.set_title(
+            rf"DLA cluster for $\eta = {eta}$ and {len(self.cluster) - 1} growth steps"
+        )
+
+        if save:
+            plt.savefig(filename, dpi=300, bbox_inches="tight")
 
         plt.show()
 
-    def grow_cluster(self):
+    def grow_cluster(self, omega: float = 1.8):
         """
         Grow the cluster by adding a random point from the perimeter
         """
-        results, _, _ = successive_over_relaxation(
-            self.grid, self.cluster, epsilon=1e-5
+        result_sor, sor_iters = successive_over_relaxation(
+            self.grid, self.cluster, omega
         )
-        self.grid = results[-1]
+        self.grid = result_sor
 
         boundary_coords = [coords for coords in self.perimeter]
         boundary_concentration = [
@@ -150,10 +172,15 @@ class Diffusion:
         elif new_coords[1] == self.N - 1:
             self.add_to_cluster((new_coords[0], 0))
 
-    def run_simulation(self, steps: int = 1000):
+        return sor_iters
+
+    def run_simulation(self, steps: int = 1000, omega: float = 1.8):
         """Runs the DLA simulation for a given number of steps."""
-        for _ in range(steps):
-            self.grow_cluster()
+        sor_iters = 0
+        for i in range(steps):
+            sor_iters += self.grow_cluster(omega)
+
+        return sor_iters
 
 
 def successive_over_relaxation(
@@ -177,12 +204,9 @@ def successive_over_relaxation(
     Returns:
     --------
     - results (List[np.ndarray]): A list of spatial grids at each iteration
-    - residuals (List[float]): The residuals at each iteration
     - k (int): The number of iterations
     """
-    residuals = []
-    results = []
-    results.append(grid.copy())
+    grid = grid.copy()
     N = grid.shape[0] - 1
 
     delta = float("inf")
@@ -243,19 +267,51 @@ def successive_over_relaxation(
             if np.abs(grid[i][N] - old_cell) > delta:
                 delta = np.abs(grid[i][N] - old_cell)
 
-        results.append(grid.copy())
-        residuals.append(delta)
-
         k += 1
 
-    return results, residuals, k
+    return grid, k
 
 
-def main():
-    diffusion = Diffusion(100, 1, initial_point="bottom")
-    diffusion.run_simulation(40)
-    diffusion.plot()
+def simulate_different_omegas(
+    eta: float = 1, omegas: list[float] = [1.0, 1.4, 1.8, 1.9]
+):
+    grid_size = 100
+    growth_steps = 50
+
+    results = np.zeros(len(omegas))
+    for j, omega in enumerate(omegas):
+        diffusion = Diffusion(grid_size, eta, initial_point="bottom")
+
+        results[j] = diffusion.run_simulation(growth_steps, omega)
+
+    return results
 
 
-if __name__ == "__main__":
-    main()
+def compare_omegas(
+    eta: float = 1,
+    omegas: list[float] = [1.0, 1.4, 1.8, 1.9],
+    num_simulations: int = 20,
+):
+    results = Parallel(n_jobs=-2)(
+        delayed(simulate_different_omegas)(eta, omegas) for _ in range(num_simulations)
+    )
+
+    return np.array(results)
+
+
+def plot_omega_comparison(
+    results, omegas, eta, save=False, filename="omega_comparison.png"
+):
+    plt.figure(figsize=(8, 5))
+    plt.boxplot(results, tick_labels=omegas)
+    plt.xlabel(r"$\omega$")
+    plt.ylabel("# SOR Iterations")
+    plt.title(
+        rf"# iterations needed in SOR vs $\omega$ for 100x100 grid, 50 grow steps, $\eta = {eta}$"
+    )
+    plt.grid(True)
+
+    if save:
+        plt.savefig(filename, dpi=300, bbox_inches="tight")
+
+    plt.show()
