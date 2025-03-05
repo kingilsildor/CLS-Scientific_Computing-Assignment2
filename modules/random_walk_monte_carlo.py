@@ -7,6 +7,7 @@ from grid import initialize_grid
 
 N = 100
 
+p_stick = 0.1
 
 class RandomWalker:
     def __init__(self, N: int, initial_point: str = "bottom"):
@@ -48,7 +49,7 @@ class RandomWalker:
         """Adds a position to the cluster and updates the perimeter."""
         self.cluster.add(coords)
         self.grid[coords[0], coords[1]] = CLUSTER_VALUE
-        self.perimeter.update(self.get_neighbours(coords))
+        self.perimeter.update(self.get_neighbours(coords))   
 
     def get_neighbours(self, coords: Tuple[int, int]):
         """Returns neighboring positions of a given cell."""
@@ -62,42 +63,39 @@ class RandomWalker:
 
     def move_walker(self):
         """Moves the walker randomly and checks if it hits the cluster."""
-        directions = ["up", "down", "left", "right"]
         row, col = self.walker
 
-        # Pick a random movement direction
-        move = random.choice(directions)
-        if move == "up":
-            row -= 1
-        elif move == "down":
-            row += 1
-        elif move == "left":
-            col -= 1
-        elif move == "right":
-            col += 1
-
-        # Periodic boundary conditions (left/right wrapping)
-        if col < 0:
-            col = self.N - 1
-        elif col >= self.N:
-            col = 0
-
-        # Check if the walker touches the cluster
-        if any(
-            (row + dx, col + dy) in self.cluster
+        possible_moves = [
+            (row + dx, col + dy)
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
-        ):
-            self.add_to_cluster((row, col))  # Convert walker into cluster point
-            self.walker = self.initialize_random_walker()  # Spawn new walker
-        elif 0 <= row < self.N:  # Walker stays within bounds
-            self.walker = [row, col]
-        else:  # Walker falls out of top/bottom → Restart new walker
+        ]
+
+        valid_moves = [
+            (new_row, (new_col + self.N) % self.N)
+            for new_row, new_col in possible_moves
+            if (0 <= new_row < self.N)
+        ]
+
+        if valid_moves:
+            self.walker = random.choice(valid_moves)
+        else:
             self.walker = self.initialize_random_walker()
+        
+        if any(
+                (self.walker[0] + dx, self.walker[1] + dy) in self.cluster
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            ):
+                if random.random() < p_stick:
+                    self.add_to_cluster(tuple(self.walker))
+                    self.walker = self.initialize_random_walker()
 
     def run_simulation(self, steps: int = 1000):
         """Runs the random walker simulation for a given number of steps."""
         for _ in range(steps):
             self.move_walker()
+            if len(self.cluster) == self.N * 2:
+                print("Cluster has reached the grid boundary.")
+                break
 
         # Plot only the final state
         plt.figure(figsize=(6, 6))
@@ -108,4 +106,4 @@ class RandomWalker:
 
 
 simulation = RandomWalker(N=100, initial_point="bottom")
-simulation.run_simulation(steps=5000000)
+simulation.run_simulation(steps=10000000)
