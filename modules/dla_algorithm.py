@@ -3,7 +3,6 @@ from typing import Set, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
-from numba import njit
 
 from modules.config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE, DPI, FIG_SIZE
 from modules.grid import initialize_grid
@@ -111,21 +110,26 @@ class Diffusion:
         assert isinstance(neighbours, set)
         return neighbours
 
-    def get_perimeter_size(self):
+    def get_perimeter_size(self) -> int:
+        """Get the size of the perimeter of the cluster"""
         return len(self.perimeter)
 
-    def get_width(self):
+    def get_width(self) -> int:
+        """Get the width of the cluster"""
         return max([coords[1] for coords in self.cluster]) - min(
             [coords[1] for coords in self.cluster]
         )
 
-    def get_height(self):
+    def get_height(self) -> int:
+        """Get the height of the cluster"""
         return max([coords[0] for coords in self.cluster]) - min(
             [coords[0] for coords in self.cluster]
         )
 
-    def plot(self, eta: float = 1, save: bool = False, filename: str = "dla.png"):
-        fig, ax = plt.subplots()
+    def plot(
+        self, eta: float = 1, save: bool = False, filename: str = "dla.png"
+    ) -> None:
+        _, ax = plt.subplots()
         im = ax.imshow(self.grid, cmap="Blues")
         plt.colorbar(im)
 
@@ -141,9 +145,17 @@ class Diffusion:
 
         plt.show()
 
-    def grow_cluster(self, omega: float = 1.8):
+    def grow_cluster(self, omega: float = 1.8) -> int:
         """
         Grow the cluster by adding a random point from the perimeter
+
+        Params:
+        -------
+        - omega: float, relaxation factor for the SOR method
+
+        Returns:
+        --------
+        - sor_iters: int, number of iterations needed for the SOR method
         """
         result_sor, sor_iters = successive_over_relaxation(
             self.grid, self.cluster, omega
@@ -175,123 +187,13 @@ class Diffusion:
 
         return sor_iters
 
-    def run_simulation(self, steps: int = 1000, omega: float = 1.8):
+    def run_simulation(self, steps: int = 1000, omega: float = 1.8) -> int:
         """Runs the DLA simulation for a given number of steps."""
         sor_iters = 0
-        for i in range(steps):
+        for _ in range(steps):
             sor_iters += self.grow_cluster(omega)
 
         return sor_iters
-
-
-@njit
-def _first_column(
-    N: int, grid: np.ndarray, cluster: Set[Tuple[int, int]], delta: float, omega: float
-) -> float:
-    """
-    Update the first column of the grid
-
-    Params:
-    -------
-    - N (int): The size of the grid
-    - grid (np.ndarray): The spatial grid
-    - cluster (Set[Tuple[int, int]]): The coordinates of the cluster
-    - delta (float): The current value of delta
-    - omega (float): The relaxation factor
-
-    Returns:
-    --------
-    - delta (float): The updated value
-    """
-    for i in range(1, N):
-        if (i, 0) in cluster:
-            continue
-
-        old_cell = grid[i][0].copy()
-        grid[i][0] = (
-            omega / 4 * (grid[i + 1][0] + grid[i - 1][0] + grid[i][1] + grid[i][N - 1])
-            + (1 - omega) * grid[i][0]
-        )
-
-        if np.abs(grid[i][0] - old_cell) > delta:
-            delta = np.abs(grid[i][0] - old_cell)
-
-    assert delta >= 0
-    return delta
-
-
-@njit
-def _center_columns(
-    N: int, grid: np.ndarray, cluster: Set[Tuple[int, int]], delta: float, omega: float
-) -> float:
-    """
-    Update the center columns of the grid
-
-    Params:
-    -------
-    - N (int): The size of the grid
-    - grid (np.ndarray): The spatial grid
-    - cluster (Set[Tuple[int, int]]): The coordinates of the cluster
-    - delta (float): The current value of delta
-    - omega (float): The relaxation factor
-
-    Returns:
-    --------
-    - delta (float): The updated value
-    """
-    for j in range(1, N):
-        for i in range(1, N):
-            if (i, j) in cluster:
-                continue
-
-            old_cell = grid[i][j].copy()
-            grid[i][j] = (
-                omega
-                / 4
-                * (grid[i + 1][j] + grid[i - 1][j] + grid[i][j + 1] + grid[i][j - 1])
-                + (1 - omega) * grid[i][j]
-            )
-
-            delta = max(delta, np.abs(grid[i][j] - old_cell))
-
-    assert delta >= 0
-    return delta
-
-
-@njit
-def _last_column(
-    N: int, grid: np.ndarray, cluster: Set[Tuple[int, int]], delta: float, omega: float
-) -> float:
-    """
-    Update the last column of the grid
-
-    Params:
-    -------
-    - N (int): The size of the grid
-    - grid (np.ndarray): The spatial grid
-    - cluster (Set[Tuple[int, int]]): The coordinates of the cluster
-    - delta (float): The current value of delta
-    - omega (float): The relaxation factor
-
-    Returns:
-    --------
-    - delta (float): The updated value
-    """
-    for i in range(1, N):
-        if (i, N) in cluster:
-            continue
-
-        old_cell = grid[i][N].copy()
-        grid[i][N] = (
-            omega / 4 * (grid[i + 1][N] + grid[i - 1][N] + grid[i][0] + grid[i][N - 1])
-            + (1 - omega) * grid[i][N]
-        )
-
-        if np.abs(grid[i][N] - old_cell) > delta:
-            delta = np.abs(grid[i][N] - old_cell)
-
-    assert delta >= 0
-    return delta
 
 
 def successive_over_relaxation(
@@ -326,9 +228,57 @@ def successive_over_relaxation(
     while delta > epsilon and k < max_iterations:
         delta = 0
 
-        delta = _first_column(N, grid, cluster, delta, omega)
-        delta = _center_columns(N, grid, cluster, delta, omega)
-        delta = _last_column(N, grid, cluster, delta, omega)
+        # First column
+        for i in range(1, N):
+            if (i, 0) in cluster:
+                continue
+
+            old_cell = grid[i][0].copy()
+            grid[i][0] = (
+                omega
+                / 4
+                * (grid[i + 1][0] + grid[i - 1][0] + grid[i][1] + grid[i][N - 1])
+                + (1 - omega) * grid[i][0]
+            )
+
+            if np.abs(grid[i][0] - old_cell) > delta:
+                delta = np.abs(grid[i][0] - old_cell)
+
+        for j in range(1, N):
+            for i in range(1, N):
+                if (i, j) in cluster:
+                    continue
+
+                old_cell = grid[i][j].copy()
+                grid[i][j] = (
+                    omega
+                    / 4
+                    * (
+                        grid[i + 1][j]
+                        + grid[i - 1][j]
+                        + grid[i][j + 1]
+                        + grid[i][j - 1]
+                    )
+                    + (1 - omega) * grid[i][j]
+                )
+
+                delta = max(delta, np.abs(grid[i][j] - old_cell))
+
+        # Last column
+        for i in range(1, N):
+            if (i, N) in cluster:
+                continue
+
+            old_cell = grid[i][N].copy()
+            grid[i][N] = (
+                omega
+                / 4
+                * (grid[i + 1][N] + grid[i - 1][N] + grid[i][0] + grid[i][N - 1])
+                + (1 - omega) * grid[i][N]
+            )
+
+            if np.abs(grid[i][N] - old_cell) > delta:
+                delta = np.abs(grid[i][N] - old_cell)
 
         k += 1
 
@@ -354,19 +304,18 @@ def simulate_different_omegas(
     growth_steps = 50
 
     results = np.zeros(len(omegas))
-    for j, omega in enumerate(omegas):
-        diffusion = Diffusion(grid_size, eta, initial_point="bottom")
-
-        results[j] = diffusion.run_simulation(growth_steps, omega)
-
-    return results
+    for i, omega in enumerate(omegas):
+        diffusion = Diffusion(grid_size, eta)
+        results[i] = diffusion.run_simulation(growth_steps, omega)
+    return np.array(results)
 
 
 def compare_omegas(
     eta: float = 1,
     omegas: list[float] = [1.0, 1.4, 1.8, 1.9],
     num_simulations: int = 20,
-):
+) -> np.ndarray:
+    """Compare the number of iterations needed for different omega values"""
     results = Parallel(n_jobs=-2)(
         delayed(simulate_different_omegas)(eta, omegas) for _ in range(num_simulations)
     )
@@ -376,7 +325,18 @@ def compare_omegas(
 
 def plot_omega_comparison(
     results, omegas, eta, save=False, filename="omega_comparison.png"
-):
+) -> None:
+    """
+    Plot the number of iterations needed for different omega values
+
+    Params:
+    -------
+    - results: np.ndarray, number of iterations needed for each omega
+    - omegas: list[float], list of omega values to test
+    - eta: float, parameter for the probability calculation
+    - save: bool, whether to save the plot
+    - filename: str, name of the file to save the plot
+    """
     plt.figure(figsize=FIG_SIZE)
     plt.boxplot(results, tick_labels=omegas)
     plt.xlabel(r"$\omega$")
