@@ -1,5 +1,5 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
+**__pycache__/
 *.py[cod]
 *$py.class
 
@@ -171,4 +171,8 @@ cython_debug/
 .pypirc
 
 # Testing notebook
-testing_notebook.ipynb
+modules/*.ipynb
+
+# Binary files
+*.mp4
+*.csv

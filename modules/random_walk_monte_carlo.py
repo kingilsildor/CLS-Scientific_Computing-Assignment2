@@ -2,17 +2,14 @@ import random
 from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
-from config import CLUSTER_VALUE, CONCENTRATION_VALUE
-from grid import initialize_grid
-
-N = 100
-
-p_stick = 0.1
+from modules.config import CLUSTER_VALUE, CONCENTRATION_VALUE
+from modules.grid import initialize_grid
 
 class RandomWalker:
-    def __init__(self, N: int, initial_point: str = "bottom"):
+    def __init__(self, N: 100, p_stick: float, initial_point: str = "bottom"):
         self.grid = initialize_grid(N)
         self.N = N
+        self.p_stick = p_stick 
         self.cluster: Set[Tuple[int, int]] = set()
         self.perimeter: Set[Tuple[int, int]] = set()
 
@@ -43,25 +40,54 @@ class RandomWalker:
         self.walker = self.initialize_random_walker()
 
     def initialize_random_walker(self):
-        return [0, random.randint(0, N - 1)]
+        return [0, random.randint(0, self.N - 1)]
 
     def add_to_cluster(self, coords: Tuple[int, int]):
         """Adds a position to the cluster and updates the perimeter."""
+        x, y = coords
         self.cluster.add(coords)
-        self.grid[coords[0], coords[1]] = CLUSTER_VALUE
-        self.perimeter.update(self.get_neighbours(coords))   
+        self.grid[x, y] = CLUSTER_VALUE 
+
+        # Add neighbours to the perimeter
+        neighbours = self.get_neighbours(coords)
+        neighbours -= self.cluster
+
+        # self.perimeter.update(self.get_neighbours(coords)) 
+        self.perimeter.update(neighbours)
+        self.perimeter.discard(coords)
+
+        assert coords not in self.perimeter
+        assert coords in self.cluster
 
     def get_neighbours(self, coords: Tuple[int, int]):
-        """Returns neighboring positions of a given cell."""
+        """Returns neighbouring positions of a given cell."""
         x, y = coords
-        neighbors = set()
+        neighbours = set()
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:  # Up, Down, Left, Right
             nx, ny = x + dx, y + dy
             if 0 <= nx < self.N and 0 <= ny < self.N:
-                neighbors.add((nx, ny))
-        return neighbors
+                neighbours.add((nx, ny))
+        
+        assert 2 <= len(neighbours) <= 4
+        assert coords not in neighbours
+        assert isinstance(neighbours, set)
+    
+        return neighbours
 
-    def move_walker(self):
+    def get_perimeter_size(self):
+        return len(self.perimeter)
+
+    def get_width(self):
+        return max([coords[1] for coords in self.cluster]) - min(
+            [coords[1] for coords in self.cluster]
+        )
+
+    def get_height(self):
+        return max([coords[0] for coords in self.cluster]) - min(
+            [coords[0] for coords in self.cluster]
+        )
+    
+    def move_walker(self, p_stick: float = 0.1):
         """Moves the walker randomly and checks if it hits the cluster."""
         row, col = self.walker
 
@@ -85,7 +111,7 @@ class RandomWalker:
                 (self.walker[0] + dx, self.walker[1] + dy) in self.cluster
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
             ):
-                if random.random() < p_stick:
+                if random.random() < self.p_stick:
                     self.add_to_cluster(tuple(self.walker))
                     self.walker = self.initialize_random_walker()
 
@@ -94,16 +120,32 @@ class RandomWalker:
         for _ in range(steps):
             self.move_walker()
             if len(self.cluster) == self.N * 2:
-                print("Cluster has reached the grid boundary.")
+                # print("Cluster has reached the grid boundary.")
                 break
 
-        # Plot only the final state
-        plt.figure(figsize=(6, 6))
-        plt.imshow(self.grid, cmap="coolwarm", origin="upper")  # Show final grid
-        plt.colorbar(label="Grid State")  # Show legend
-        plt.title("Final Diffusion-Limited Aggregation Grid")
-        plt.show()
+    def plot(self, p_stick: float = 1, save: bool = False, filename: str = "random_walker.png"):
+        fig, ax = plt.subplots()
+        im = ax.imshow(self.grid, cmap="Blues")
+        plt.colorbar(im)
+
+        x_points = [coords[1] for coords in self.cluster]
+        y_points = [coords[0] for coords in self.cluster]
+        ax.scatter(x_points, y_points, color="black", s=2)
+        ax.set_title(
+            rf"Random-Walker cluster for P_s = {p_stick}$ and {len(self.cluster) - 1} growth steps"
+        )
+
+        if save:
+            plt.savefig(filename, dpi=300, bbox_inches="tight")
+
+        plt.show()  
+        # # Plot only the final state
+        # plt.figure(figsize=(6, 6))
+        # plt.imshow(self.grid, cmap="coolwarm", origin="upper")  # Show final grid
+        # plt.colorbar(label="Grid State")  # Show legend
+        # plt.title("Final Diffusion-Limited Aggregation Grid")
+        # plt.show()
 
 
-simulation = RandomWalker(N=100, initial_point="bottom")
-simulation.run_simulation(steps=10000000)
+#simulation = RandomWalker(N=100, initial_point="bottom")
+#simulation.run_simulation(steps=10000000)
