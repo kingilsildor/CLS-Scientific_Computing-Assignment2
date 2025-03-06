@@ -7,8 +7,8 @@ from numba import njit
 from PIL import Image
 from tqdm import tqdm
 
-from modules.config import DIRICHLET_VALUE
-from modules.grid import fill_center, initialize_grid, fill_noise
+from modules.config import DIRICHLET_VALUE, DPI, FIG_SIZE
+from modules.grid import fill_center, fill_noise, initialize_grid
 
 
 @njit
@@ -172,6 +172,7 @@ def simulate_gray_scott(
         u, v = gray_scott(u, v, Du, Dv, F, k, dx, dt, boundary)
 
         if step % 100 == 0:
+            plt.figure(figsize=FIG_SIZE, dpi=DPI)
             filename = "results/gs_{:02d}.png".format(step // 100)
             if chemical == "u":
                 plt.imshow(u, cmap=colour)
@@ -189,7 +190,7 @@ def simulate_gray_scott(
             plt.axis("off")
             plt.tight_layout()
             plt.savefig(filename)
-    plt.close()
+            plt.close()
 
 
 def create_gif(
@@ -210,7 +211,7 @@ def create_gif(
     - loop (int): Number of times the GIF loops (0 = infinite loop).
     - delete_images (bool): Whether to delete the PNG images after creating the GIF.
     """
-    images = sorted(glob.glob(f"{image_folder}/*.png"))
+    images = sorted(glob.glob(f"{image_folder}/gs_[0-9][0-9].png"))
     assert images, f"No images found in {image_folder}"
 
     frames = [Image.open(img) for img in images]
