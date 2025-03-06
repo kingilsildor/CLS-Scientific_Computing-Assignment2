@@ -171,4 +171,8 @@ cython_debug/
 .pypirc
 
 # Testing notebook
-testing_notebook.ipynb
+modules/*.ipynb
+
+# Binary files
+*.mp4
+*.csv
