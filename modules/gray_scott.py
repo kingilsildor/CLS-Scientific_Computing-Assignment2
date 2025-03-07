@@ -46,13 +46,14 @@ def boundary_conditions(chemical: np.ndarray, boundary: str) -> np.ndarray:
 
 
 @njit
-def laplacian(chemical: np.ndarray) -> np.ndarray:
+def laplacian(chemical: np.ndarray, boundary: str) -> np.ndarray:
     """
     Calculate the laplacian of a 2D grid
 
     Params:
     -------
     - chemical (np.ndarray): 2D grid
+    - boundary (str): type of boundary condition to apply
 
     Returns:
     --------
@@ -68,7 +69,7 @@ def laplacian(chemical: np.ndarray) -> np.ndarray:
         - 4 * chemical[1:-1, 1:-1]
     )
 
-    laplacian = boundary_conditions(laplacian, "neumann")
+    laplacian = boundary_conditions(laplacian, boundary)
 
     assert laplacian.shape == chemical.shape
     return laplacian
@@ -106,8 +107,8 @@ def gray_scott(
     - u (np.ndarray): updated concentration of the u chemical
     - v (np.ndarray): updated concentration of the v chemical
     """
-    Lu = laplacian(u)
-    Lv = laplacian(v)
+    Lu = laplacian(u, boundary)
+    Lv = laplacian(v, boundary)
 
     uvv = u * v * v
 
@@ -169,7 +170,9 @@ def simulate_gray_scott(
     colour = "viridis"
 
     for step in tqdm(range(steps), desc="Gray-Scott simulation"):
-        u, v = gray_scott(u, v, Du, Dv, F, k, dx, dt, boundary)
+        u, v = gray_scott(
+            u=u, v=v, Du=Du, Dv=Dv, F=F, k=k, dx=dx, dt=dt, boundary=boundary
+        )
 
         if step % 100 == 0:
             plt.figure(figsize=FIG_SIZE, dpi=DPI)
@@ -226,3 +229,32 @@ def create_gif(
     if delete_images:
         for img in images:
             os.remove(img)
+
+
+if __name__ == "__main__":
+    N = 100
+    steps = 3_000
+
+    Du = 0.16
+    Dv = 0.08
+    F = 0.035
+    k = 0.06
+    dx = 1
+    dt = 1
+
+    simulate_gray_scott(
+        N,
+        Du,
+        Dv,
+        F,
+        k,
+        dx,
+        dt,
+        steps,
+        chemical="v",
+        boundary="neumann",
+        info=True,
+        noise_u=True,
+        noise_v=False,
+    )
+    create_gif("results", "results/gray_scott1.gif")
