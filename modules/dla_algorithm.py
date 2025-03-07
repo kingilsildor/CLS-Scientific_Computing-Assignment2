@@ -207,7 +207,7 @@ def _first_column(
         if (i, 0) in cluster:
             continue
 
-        old_cell = grid[i][0].copy()
+        old_cell = grid[i][0]
         grid[i][0] = (
             omega / 4 * (grid[i + 1][0] + grid[i - 1][0] + grid[i][1] + grid[i][N - 1])
             + (1 - omega) * grid[i][0]
@@ -244,7 +244,7 @@ def _center_columns(
             if (i, j) in cluster:
                 continue
 
-            old_cell = grid[i][j].copy()
+            old_cell = grid[i][j]
             grid[i][j] = (
                 omega
                 / 4
@@ -281,7 +281,7 @@ def _last_column(
         if (i, N) in cluster:
             continue
 
-        old_cell = grid[i][N].copy()
+        old_cell = grid[i][N]
         grid[i][N] = (
             omega / 4 * (grid[i + 1][N] + grid[i - 1][N] + grid[i][0] + grid[i][N - 1])
             + (1 - omega) * grid[i][N]
@@ -351,7 +351,7 @@ def simulate_different_omegas(
     - results: np.ndarray, number of iterations needed for each omega
     """
     grid_size = 100
-    growth_steps = 50
+    growth_steps = 200
 
     results = np.zeros(len(omegas))
     for j, omega in enumerate(omegas):
