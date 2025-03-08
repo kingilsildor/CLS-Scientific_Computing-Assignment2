@@ -2,14 +2,16 @@ import random
 from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
-from modules.config import CLUSTER_VALUE, CONCENTRATION_VALUE
+
+from modules.config import CLUSTER_VALUE, CONCENTRATION_VALUE, DPI
 from modules.grid import initialize_grid
+
 
 class RandomWalker:
     def __init__(self, N: 100, p_stick: float, initial_point: str = "bottom"):
         self.grid = initialize_grid(N)
         self.N = N
-        self.p_stick = p_stick 
+        self.p_stick = p_stick
         self.cluster: Set[Tuple[int, int]] = set()
         self.perimeter: Set[Tuple[int, int]] = set()
 
@@ -46,13 +48,13 @@ class RandomWalker:
         """Adds a position to the cluster and updates the perimeter."""
         x, y = coords
         self.cluster.add(coords)
-        self.grid[x, y] = CLUSTER_VALUE 
+        self.grid[x, y] = CLUSTER_VALUE
 
         # Add neighbours to the perimeter
         neighbours = self.get_neighbours(coords)
         neighbours -= self.cluster
 
-        # self.perimeter.update(self.get_neighbours(coords)) 
+        # self.perimeter.update(self.get_neighbours(coords))
         self.perimeter.update(neighbours)
         self.perimeter.discard(coords)
 
@@ -67,11 +69,11 @@ class RandomWalker:
             nx, ny = x + dx, y + dy
             if 0 <= nx < self.N and 0 <= ny < self.N:
                 neighbours.add((nx, ny))
-        
+
         assert 2 <= len(neighbours) <= 4
         assert coords not in neighbours
         assert isinstance(neighbours, set)
-    
+
         return neighbours
 
     def get_perimeter_size(self):
@@ -86,14 +88,13 @@ class RandomWalker:
         return max([coords[0] for coords in self.cluster]) - min(
             [coords[0] for coords in self.cluster]
         )
-    
+
     def move_walker(self, p_stick: float = 0.1):
         """Moves the walker randomly and checks if it hits the cluster."""
         row, col = self.walker
 
         possible_moves = [
-            (row + dx, col + dy)
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            (row + dx, col + dy) for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
         ]
 
         valid_moves = [
@@ -106,14 +107,14 @@ class RandomWalker:
             self.walker = random.choice(valid_moves)
         else:
             self.walker = self.initialize_random_walker()
-        
+
         if any(
-                (self.walker[0] + dx, self.walker[1] + dy) in self.cluster
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
-            ):
-                if random.random() < self.p_stick:
-                    self.add_to_cluster(tuple(self.walker))
-                    self.walker = self.initialize_random_walker()
+            (self.walker[0] + dx, self.walker[1] + dy) in self.cluster
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        ):
+            if random.random() < self.p_stick:
+                self.add_to_cluster(tuple(self.walker))
+                self.walker = self.initialize_random_walker()
 
     def run_simulation(self, steps: int = 1000):
         """Runs the random walker simulation for a given number of steps."""
@@ -123,7 +124,12 @@ class RandomWalker:
                 # print("Cluster has reached the grid boundary.")
                 break
 
-    def plot(self, p_stick: float = 1, save: bool = False, filename: str = "random_walker.png"):
+    def plot(
+        self,
+        p_stick: float = 1,
+        save: bool = False,
+        filename: str = "random_walker.png",
+    ):
         fig, ax = plt.subplots()
         im = ax.imshow(self.grid, cmap="Blues")
         plt.colorbar(im)
@@ -136,9 +142,9 @@ class RandomWalker:
         )
 
         if save:
-            plt.savefig(filename, dpi=300, bbox_inches="tight")
+            plt.savefig(filename, dpi=DPI, bbox_inches="tight")
 
-        plt.show()  
+        plt.show()
         # # Plot only the final state
         # plt.figure(figsize=(6, 6))
         # plt.imshow(self.grid, cmap="coolwarm", origin="upper")  # Show final grid
@@ -147,5 +153,5 @@ class RandomWalker:
         # plt.show()
 
 
-#simulation = RandomWalker(N=100, initial_point="bottom")
-#simulation.run_simulation(steps=10000000)
+# simulation = RandomWalker(N=100, initial_point="bottom")
+# simulation.run_simulation(steps=10000000)

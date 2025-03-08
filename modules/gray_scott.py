@@ -7,7 +7,7 @@ from numba import njit
 from PIL import Image
 from tqdm import tqdm
 
-from modules.config import DIRICHLET_VALUE, DPI, FIG_SIZE
+from modules.config import DIRICHLET_VALUE, DPI, FIG_SIZE, PRINT_EVERY
 from modules.grid import fill_center, fill_noise, initialize_grid
 
 
@@ -173,27 +173,70 @@ def simulate_gray_scott(
         u, v = gray_scott(
             u=u, v=v, Du=Du, Dv=Dv, F=F, k=k, dx=dx, dt=dt, boundary=boundary
         )
+        noise = noise_u or noise_v
 
-        if step % 100 == 0:
+        if step % PRINT_EVERY == 0:
             plt.figure(figsize=FIG_SIZE, dpi=DPI)
-            filename = "results/gs_{:02d}.png".format(step // 100)
+            filename = f"results/gs_{((step // 100) + 1):02d}_chemical={chemical}_D_u={Du}_D_v={Dv}_F={F}_k={k}_noise={noise}.png"
             if chemical == "u":
-                plt.imshow(u, cmap=colour)
+                im = plt.imshow(u, cmap=colour)
             elif chemical == "v":
-                plt.imshow(v, cmap=colour)
+                im = plt.imshow(v, cmap=colour)
             else:
                 raise ValueError(f"Invalid chemical: {chemical}")
 
+            # Enable the following line to display the colorbar
+            # if step == steps - PRINT_EVERY:
+            #     plt.colorbar(im)
             if info:
                 plt.title(
-                    f"Gray-Scott Step {step} for chemical ${chemical}$\n $D_u={Du}$, $D_v={Dv}$, $F={F}$, $k={k}$, $\\delta x={dx}$, $\\delta t={dt}$\n {boundary} boundary"
+                    f"Gray-Scott Step {step + PRINT_EVERY} for chemical ${chemical}$\n $D_u={Du}$, $D_v={Dv}$, $F={F}$, $k={k}$, $\\delta x={dx}$, $\\delta t={dt}$\n {boundary} boundary"
                 )
             else:
-                plt.title(f"Gray-Scott Step {step} for chemical ${chemical}$\n")
+                plt.title(
+                    f"Gray-Scott Step {step + PRINT_EVERY} for chemical ${chemical}$\n"
+                )
             plt.axis("off")
             plt.tight_layout()
             plt.savefig(filename)
             plt.close()
+
+
+def get_images(image_folder: str) -> list:
+    """
+    Get a list of PNG images from a folder.
+
+    Params:
+    -------
+    - image_folder (str): Path to the folder containing PNG images.
+
+    Returns:
+    --------
+    - images (list): List of PNG images in the folder.
+    """
+    images = sorted(glob.glob(f"{image_folder}/gs_[0-9][0-9]_*.png"))
+    return images
+
+
+def delete_images(image_folder: str):
+    """
+    Delete all PNG images in a folder.
+
+    Params:
+    -------
+    - image_folder (str): Path to the folder containing PNG images.
+
+    Returns:
+    --------
+    - None: If no images are found in the folder.
+    """
+    images = get_images(image_folder)
+    if not images:
+        return
+
+    for img in images:
+        os.remove(img)
+    print(f"Deleted {len(images)} images from {image_folder}")
 
 
 def create_gif(
@@ -201,7 +244,6 @@ def create_gif(
     output_gif: str,
     duration: int = 100,
     loop: int = 0,
-    delete_images: bool = True,
 ):
     """
     Create a GIF from multiple PNG images.
@@ -213,9 +255,14 @@ def create_gif(
     - duration (int): Duration of each frame in milliseconds (default 100ms).
     - loop (int): Number of times the GIF loops (0 = infinite loop).
     - delete_images (bool): Whether to delete the PNG images after creating the GIF.
+
+    Returns:
+    --------
+    - None: If no images are found in the folder/
     """
-    images = sorted(glob.glob(f"{image_folder}/gs_[0-9][0-9].png"))
-    assert images, f"No images found in {image_folder}"
+    images = get_images(image_folder)
+    if not images:
+        return
 
     frames = [Image.open(img) for img in images]
     frames[0].save(
@@ -226,35 +273,43 @@ def create_gif(
         loop=loop,
     )
 
-    if delete_images:
-        for img in images:
-            os.remove(img)
-
 
 if __name__ == "__main__":
+    delete_images("results")
     N = 100
-    steps = 3_000
-
-    Du = 0.16
-    Dv = 0.08
-    F = 0.035
-    k = 0.06
+    steps = 5_000
     dx = 1
     dt = 1
 
-    simulate_gray_scott(
-        N,
-        Du,
-        Dv,
-        F,
-        k,
-        dx,
-        dt,
-        steps,
-        chemical="v",
-        boundary="neumann",
-        info=True,
-        noise_u=True,
-        noise_v=False,
-    )
-    create_gif("results", "results/gray_scott1.gif")
+    reaction_diffusion_params = {
+        "snowflake": {"Du": 0.16, "Dv": 0.08, "F": 0.035, "k": 0.06},
+        "spots": {"Du": 0.1, "Dv": 0.05, "F": 0.035, "k": 0.065},
+        "star": {"Du": 0.16, "Dv": 0.08, "F": 0.022, "k": 0.051},
+        "wave": {"Du": 0.12, "Dv": 0.08, "F": 0.018, "k": 0.051},
+    }
+    for noise in [True, False]:
+        for category, params in reaction_diffusion_params.items():
+            Du = params["Du"]
+            Dv = params["Dv"]
+            F = params["F"]
+            k = params["k"]
+            simulate_gray_scott(
+                N,
+                Du,
+                Dv,
+                F,
+                k,
+                dx,
+                dt,
+                steps,
+                chemical="v",
+                boundary="neumann",
+                info=False,
+                noise_u=noise,
+                noise_v=False,
+            )
+            # create_gif(
+            #     "results", f"results/gray_scott_{category}_{noise}.gif", duration=100
+            # )
+            # print(f"Created GIF for {category} reaction-diffusion pattern")
+            # delete_images("results")
