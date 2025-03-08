@@ -389,7 +389,7 @@ def plot_omega_comparison(
     plt.xlabel(r"$\omega$")
     plt.ylabel("# SOR Iterations")
     plt.title(
-        rf"# iterations needed in SOR vs $\omega$ for 100x100 grid, 50 grow steps, $\eta = {eta}$"
+        rf"# iterations needed in SOR vs $\omega$ for 100x100 grid, 200 grow steps, $\eta = {eta}$"
     )
     plt.grid(True)
 
