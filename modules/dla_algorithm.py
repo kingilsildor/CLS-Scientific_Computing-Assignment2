@@ -151,10 +151,12 @@ class Diffusion:
         self.grid = result_sor
 
         boundary_coords = [coords for coords in self.perimeter]
-        boundary_concentration = [
-            self.grid[coords] ** self.eta if self.grid[coords] >= 0 else 0
-            for coords in boundary_coords
-        ]
+        boundary_concentration = np.array(
+            [
+                self.grid[coords] ** self.eta if self.grid[coords] >= 0 else 0
+                for coords in boundary_coords
+            ]
+        )
         total_boundary_concentration = sum(boundary_concentration)
 
         # Pick one cell randomly
@@ -180,6 +182,11 @@ class Diffusion:
         sor_iters = 0
         for i in range(steps):
             sor_iters += self.grow_cluster(omega)
+
+            # Stops if the concentration is too low
+            if self.grid.max() < 1e-10:
+                print(f"Simulation was stopped after step {i} due to low concentration")
+                break
 
         return sor_iters
 
