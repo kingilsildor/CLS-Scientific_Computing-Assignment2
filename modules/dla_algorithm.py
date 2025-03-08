@@ -163,10 +163,12 @@ class Diffusion:
         self.grid = result_sor
 
         boundary_coords = [coords for coords in self.perimeter]
-        boundary_concentration = [
-            self.grid[coords] ** self.eta if self.grid[coords] >= 0 else 0
-            for coords in boundary_coords
-        ]
+        boundary_concentration = np.array(
+            [
+                self.grid[coords] ** self.eta if self.grid[coords] >= 0 else 0
+                for coords in boundary_coords
+            ]
+        )
         total_boundary_concentration = sum(boundary_concentration)
 
         # Pick one cell randomly
@@ -193,7 +195,122 @@ class Diffusion:
         for _ in range(steps):
             sor_iters += self.grow_cluster(omega)
 
+            # Stops if the concentration is too low
+            if self.grid.max() < 1e-10:
+                print(f"Simulation was stopped after step {i} due to low concentration")
+                break
+
         return sor_iters
+
+
+@njit
+def _first_column(
+    N: int, grid: np.ndarray, cluster: Set[Tuple[int, int]], delta: float, omega: float
+) -> float:
+    """
+    Update the first column of the grid
+
+    Params:
+    -------
+    - N (int): The size of the grid
+    - grid (np.ndarray): The spatial grid
+    - cluster (Set[Tuple[int, int]]): The coordinates of the cluster
+    - delta (float): The current value of delta
+    - omega (float): The relaxation factor
+
+    Returns:
+    --------
+    - delta (float): The updated value
+    """
+    for i in range(1, N):
+        if (i, 0) in cluster:
+            continue
+
+        old_cell = grid[i][0]
+        grid[i][0] = (
+            omega / 4 * (grid[i + 1][0] + grid[i - 1][0] + grid[i][1] + grid[i][N - 1])
+            + (1 - omega) * grid[i][0]
+        )
+
+        if np.abs(grid[i][0] - old_cell) > delta:
+            delta = np.abs(grid[i][0] - old_cell)
+
+    assert delta >= 0
+    return delta
+
+
+@njit
+def _center_columns(
+    N: int, grid: np.ndarray, cluster: Set[Tuple[int, int]], delta: float, omega: float
+) -> float:
+    """
+    Update the center columns of the grid
+
+    Params:
+    -------
+    - N (int): The size of the grid
+    - grid (np.ndarray): The spatial grid
+    - cluster (Set[Tuple[int, int]]): The coordinates of the cluster
+    - delta (float): The current value of delta
+    - omega (float): The relaxation factor
+
+    Returns:
+    --------
+    - delta (float): The updated value
+    """
+    for j in range(1, N):
+        for i in range(1, N):
+            if (i, j) in cluster:
+                continue
+
+            old_cell = grid[i][j]
+            grid[i][j] = (
+                omega
+                / 4
+                * (grid[i + 1][j] + grid[i - 1][j] + grid[i][j + 1] + grid[i][j - 1])
+                + (1 - omega) * grid[i][j]
+            )
+
+            delta = max(delta, np.abs(grid[i][j] - old_cell))
+
+    assert delta >= 0
+    return delta
+
+
+@njit
+def _last_column(
+    N: int, grid: np.ndarray, cluster: Set[Tuple[int, int]], delta: float, omega: float
+) -> float:
+    """
+    Update the last column of the grid
+
+    Params:
+    -------
+    - N (int): The size of the grid
+    - grid (np.ndarray): The spatial grid
+    - cluster (Set[Tuple[int, int]]): The coordinates of the cluster
+    - delta (float): The current value of delta
+    - omega (float): The relaxation factor
+
+    Returns:
+    --------
+    - delta (float): The updated value
+    """
+    for i in range(1, N):
+        if (i, N) in cluster:
+            continue
+
+        old_cell = grid[i][N]
+        grid[i][N] = (
+            omega / 4 * (grid[i + 1][N] + grid[i - 1][N] + grid[i][0] + grid[i][N - 1])
+            + (1 - omega) * grid[i][N]
+        )
+
+        if np.abs(grid[i][N] - old_cell) > delta:
+            delta = np.abs(grid[i][N] - old_cell)
+
+    assert delta >= 0
+    return delta
 
 
 def successive_over_relaxation(
@@ -301,7 +418,7 @@ def simulate_different_omegas(
     - results: np.ndarray, number of iterations needed for each omega
     """
     grid_size = 100
-    growth_steps = 50
+    growth_steps = 200
 
     results = np.zeros(len(omegas))
     for i, omega in enumerate(omegas):
@@ -342,7 +459,7 @@ def plot_omega_comparison(
     plt.xlabel(r"$\omega$")
     plt.ylabel("# SOR Iterations")
     plt.title(
-        rf"# iterations needed in SOR vs $\omega$ for 100x100 grid, 50 grow steps, $\eta = {eta}$"
+        rf"# iterations needed in SOR vs $\omega$ for 100x100 grid, 200 grow steps, $\eta = {eta}$"
     )
     plt.grid(True)
 
