@@ -4,6 +4,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
+from numba import njit
 
 from modules.config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE, DPI, FIG_SIZE
 from modules.grid import initialize_grid
