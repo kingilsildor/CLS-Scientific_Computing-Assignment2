@@ -1,11 +1,15 @@
 from typing import Set, Tuple
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
 
 from modules.config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE, DPI, FIG_SIZE
 from modules.grid import initialize_grid
+
+CMAP_DLA = mpl.colormaps["Blues"]
+COLORS_DLA = CMAP_DLA(np.linspace(0.3, 1, 3))
 
 
 class Diffusion:
@@ -130,7 +134,7 @@ class Diffusion:
         self, eta: float = 1, save: bool = False, filename: str = "dla.png"
     ) -> None:
         _, ax = plt.subplots()
-        im = ax.imshow(self.grid, cmap="Blues")
+        im = ax.imshow(self.grid, cmap=CMAP_DLA)
         plt.colorbar(im)
 
         x_points = [coords[1] for coords in self.cluster]
