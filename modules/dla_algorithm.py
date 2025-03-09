@@ -197,7 +197,7 @@ class Diffusion:
     def run_simulation(self, steps: int = 1000, omega: float = 1.8) -> int:
         """Runs the DLA simulation for a given number of steps."""
         sor_iters = 0
-        for _ in range(steps):
+        for i in range(steps):
             sor_iters += self.grow_cluster(omega)
 
             # Stops if the concentration is too low
