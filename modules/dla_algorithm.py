@@ -10,7 +10,7 @@ from modules.config import CLUSTER_VALUE_DLA, CONCENTRATION_VALUE, DPI, FIG_SIZE
 from modules.grid import initialize_grid
 
 CMAP_DLA = mpl.colormaps["Blues"]
-COLORS_DLA = CMAP_DLA(np.linspace(0.3, 1, 3))
+COLORS_DLA = CMAP_DLA(np.linspace(0.35, 1, 3))
 
 
 class Diffusion:
