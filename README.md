@@ -66,16 +66,22 @@ List all contributors to the project.
 - [Michael MacFarlane Glasow](https://github.com/mdmg01)
 
 ## Git Fame
-
-Total commits: XX
-Total ctimes: XX
-Total files: XX
-Total loc: XX
+Total commits: 76
+Total ctimes: 521
+Total files: 20
+Total loc: 1717
 | Author            |   loc |   coms |   fils |  distribution   |
 |:------------------|------:|-------:|-------:|:----------------|
+| kingilsildor      |   795 |     25 |      9 | 46.3/32.9/45.0  |
+| Anezka            |   366 |     32 |      4 | 21.3/42.1/20.0  |
+| mdmg01            |   320 |      8 |      3 | 18.6/10.5/15.0  |
+| Tycho Stam        |   236 |      3 |      4 | 13.7/ 3.9/20.0  |
+| Anezka Potesilova |     0 |      8 |      0 | 0.0/10.5/ 0.0   |
 
 
-Note: Tycho Stam -> kingilsildor
+Note: 
+Tycho Stam -> kingilsildor
+Michael MacFarlane Glasow -> mdmg01
 
 ## License
 
