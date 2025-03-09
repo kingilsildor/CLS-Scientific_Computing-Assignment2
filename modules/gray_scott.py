@@ -86,7 +86,7 @@ def gray_scott(
     dx: float,
     dt: float,
     boundary: str,
-):
+) -> tuple:
     """
     Calculate the Gray-Scott reaction-diffusion model
 
@@ -133,7 +133,7 @@ def simulate_gray_scott(
     boundary: str = "neumann",
     chemical: str = "v",
     info: bool = False,
-):
+) -> None:
     """
     Simulate the Gray-Scott reaction-diffusion model with side-by-side animation.
 
@@ -152,11 +152,6 @@ def simulate_gray_scott(
     - boundary (str): type of boundary condition to apply (neumann, periodic, dirichlet)
     - chemical (str): chemical to visualize (u or v)
     - info (bool): whether to display simulation info
-
-    Returns:
-    --------
-    - u (np.ndarray): final concentration of the u chemical
-    - v (np.ndarray): final concentration of the v chemical
     """
     u = initialize_grid(N, 1.0)
     v = fill_center(initialize_grid(N))
@@ -218,7 +213,7 @@ def get_images(image_folder: str) -> list:
     return images
 
 
-def delete_images(image_folder: str):
+def delete_images(image_folder: str) -> None:
     """
     Delete all PNG images in a folder.
 
@@ -244,7 +239,7 @@ def create_gif(
     output_gif: str,
     duration: int = 100,
     loop: int = 0,
-):
+) -> None:
     """
     Create a GIF from multiple PNG images.
 
@@ -308,6 +303,7 @@ if __name__ == "__main__":
                 noise_u=noise,
                 noise_v=False,
             )
+            # Run the following line to create a GIF
             # create_gif(
             #     "results", f"results/gray_scott_{category}_{noise}.gif", duration=100
             # )
