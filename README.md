@@ -80,8 +80,8 @@ Total loc: 1717
 
 
 Note: 
-Tycho Stam -> kingilsildor
-Michael MacFarlane Glasow -> mdmg01
+- Tycho Stam -> kingilsildor
+- Michael MacFarlane Glasow -> mdmg01
 
 ## License
 
