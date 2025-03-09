@@ -350,57 +350,9 @@ def successive_over_relaxation(
     while delta > epsilon and k < max_iterations:
         delta = 0
 
-        # First column
-        for i in range(1, N):
-            if (i, 0) in cluster:
-                continue
-
-            old_cell = grid[i][0].copy()
-            grid[i][0] = (
-                omega
-                / 4
-                * (grid[i + 1][0] + grid[i - 1][0] + grid[i][1] + grid[i][N - 1])
-                + (1 - omega) * grid[i][0]
-            )
-
-            if np.abs(grid[i][0] - old_cell) > delta:
-                delta = np.abs(grid[i][0] - old_cell)
-
-        for j in range(1, N):
-            for i in range(1, N):
-                if (i, j) in cluster:
-                    continue
-
-                old_cell = grid[i][j].copy()
-                grid[i][j] = (
-                    omega
-                    / 4
-                    * (
-                        grid[i + 1][j]
-                        + grid[i - 1][j]
-                        + grid[i][j + 1]
-                        + grid[i][j - 1]
-                    )
-                    + (1 - omega) * grid[i][j]
-                )
-
-                delta = max(delta, np.abs(grid[i][j] - old_cell))
-
-        # Last column
-        for i in range(1, N):
-            if (i, N) in cluster:
-                continue
-
-            old_cell = grid[i][N].copy()
-            grid[i][N] = (
-                omega
-                / 4
-                * (grid[i + 1][N] + grid[i - 1][N] + grid[i][0] + grid[i][N - 1])
-                + (1 - omega) * grid[i][N]
-            )
-
-            if np.abs(grid[i][N] - old_cell) > delta:
-                delta = np.abs(grid[i][N] - old_cell)
+        delta = _first_column(N, grid, cluster, delta, omega)
+        delta = _center_columns(N, grid, cluster, delta, omega)
+        delta = _last_column(N, grid, cluster, delta, omega)
 
         k += 1
 
@@ -429,6 +381,7 @@ def simulate_different_omegas(
     for i, omega in enumerate(omegas):
         diffusion = Diffusion(grid_size, eta)
         results[i] = diffusion.run_simulation(growth_steps, omega)
+
     return np.array(results)
 
 
